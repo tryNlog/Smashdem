@@ -7,24 +7,45 @@
 
 import { cloneRandomState, createRandomState, nextRandomRange } from '../engine/random';
 import * as Balance from './balance';
-import type { BattleState, Beyblade, BeybladeStats } from './types';
+import type { Build } from './parts';
+import { buildProfile, knockbackTier, STARTER_BUILD } from './parts';
+import type { BattleState, Beyblade, BeybladeStats, BuildTuning, KnockbackTier } from './types';
+import { NEUTRAL_TUNING } from './types';
 
-/** 팽이 한 대의 초기 정의(스폰 전 설정값). */
+/**
+ * 팽이 한 대의 초기 정의(스폰 전 설정값).
+ * 파츠는 배틀 시작 시점의 스냅샷으로만 들어온다 — 배틀 중 파츠 변경은 없다(§6-4 netcode 인계).
+ */
 export interface BeybladeDefinition {
   readonly name: string;
   readonly stats: BeybladeStats;
+  /** 파츠 3개의 넉백 합산. 생략하면 0. */
+  readonly knockback?: number;
+  /** 파츠 특성이 만든 배율. 생략하면 전부 1.0. */
+  readonly tuning?: BuildTuning;
 }
 
-/** S0 기본 매치업. 둘 다 기준 스탯이라 실력 차이만 남는다. */
-export const DEFAULT_PLAYER_DEFINITION: BeybladeDefinition = {
-  name: 'PLAYER',
-  stats: { attack: 50, weight: 50, stamina: 50, control: 50 },
-};
+/** 파츠 빌드에서 배틀용 정의를 만든다. */
+export function definitionFromBuild(name: string, build: Build): BeybladeDefinition {
+  const profile = buildProfile(build);
+  return {
+    name,
+    stats: profile.stats,
+    knockback: profile.knockback,
+    tuning: profile.tuning,
+  };
+}
 
-export const DEFAULT_BOT_DEFINITION: BeybladeDefinition = {
-  name: 'BOT',
-  stats: { attack: 50, weight: 50, stamina: 50, control: 50 },
-};
+/** 런 시작 빌드. 넉백 합산 0 이며 T1 의 기준이 된다. */
+export const DEFAULT_PLAYER_DEFINITION: BeybladeDefinition = definitionFromBuild(
+  'PLAYER',
+  STARTER_BUILD,
+);
+
+export const DEFAULT_BOT_DEFINITION: BeybladeDefinition = definitionFromBuild(
+  'BOT',
+  STARTER_BUILD,
+);
 
 /** 두 팽이 쌍의 쿨다운 배열 인덱스. */
 export function pairKey(indexA: number, indexB: number): number {
@@ -34,10 +55,17 @@ export function pairKey(indexA: number, indexB: number): number {
 }
 
 function createBeyblade(index: number, definition: BeybladeDefinition): Beyblade {
+  const knockback = definition.knockback ?? 0;
+  const tier: KnockbackTier = knockbackTier(knockback);
   return {
     index,
     name: definition.name,
     stats: definition.stats,
+    knockback,
+    knockbackTier: tier,
+    tuning: definition.tuning ?? NEUTRAL_TUNING,
+    stunRemainingSeconds: 0,
+    lipPierceRemainingSeconds: 0,
     positionX: 0,
     positionY: 0,
     velocityX: 0,

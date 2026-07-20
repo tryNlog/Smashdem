@@ -53,7 +53,7 @@ export const DISH_LIP_THRESHOLD = 0.72;
  * 즉 링아웃이 "강한 타격의 보상"이 아니라 "조작 실수 자폭"이 된다.
  * 턱은 지속적인 자력 추진은 막고, 충돌로 순간적으로 실리는 큰 속도는 넘어갈 수 있게 하는 장치다.
  */
-export const DISH_LIP_ACCELERATION = 1600;
+export const DISH_LIP_ACCELERATION = 950;
 
 /** 접시 바닥 마찰. 속도에 비례해 감속시킨다 (v *= 1 - k*dt 형태). */
 export const FLOOR_DRAG_PER_SECOND = 1.35;
@@ -73,9 +73,9 @@ export const STAT_INFLUENCE = {
   /** attack → 가하는 충돌 데미지 배율 */
   attack: 0.6,
   /** weight → 충돌 질량(밀림 저항) 및 피격 데미지 감소 */
-  weight: 0.6,
+  weight: 0.45,
   /** stamina → 회전력 자연 감소 저항 */
-  stamina: 0.5,
+  stamina: 0.8,
   /** control → 입력 가속력 */
   control: 0.5,
 } as const;
@@ -85,7 +85,7 @@ export const STAT_INFLUENCE = {
 // ─────────────────────────────────────────────────────────────
 
 /** 방향키 입력이 만드는 기본 가속(control 50 기준). 관성은 마찰로만 줄어든다. */
-export const MOVE_ACCELERATION_BASE = 430;
+export const MOVE_ACCELERATION_BASE = 355;
 
 // ─────────────────────────────────────────────────────────────
 // 대시 버스트 (Space)
@@ -120,7 +120,7 @@ export const BURST_ACCELERATION_MULTIPLIER = 1.35;
 export const SPIN_MAXIMUM = 100;
 
 /** 아무것도 안 해도 줄어드는 초당 회전력(stamina 50 기준). */
-export const SPIN_DECAY_BASE_PER_SECOND = 0.85;
+export const SPIN_DECAY_BASE_PER_SECOND = 1.05;
 
 /** 속도 1유닛/초당 추가로 깎이는 초당 회전력. 빨리 움직일수록 빨리 지친다. */
 export const SPIN_DECAY_PER_SPEED_UNIT = 0.0042;
@@ -142,7 +142,7 @@ export const COLLISION_RESTITUTION = 0.95;
 export const COLLISION_SEPARATION_SLACK = 1.02;
 
 /** 상대 접근 속도 1유닛/초당 기본 데미지. 실제 데미지는 여기에 attack/weight 배율이 곱해진다. */
-export const COLLISION_DAMAGE_PER_RELATIVE_SPEED = 0.011;
+export const COLLISION_DAMAGE_PER_RELATIVE_SPEED = 0.005;
 
 /**
  * 공격자가 자기 충돌로 되받는 데미지 비율.
@@ -158,6 +158,56 @@ export const COLLISION_STRENGTH_REFERENCE_SPEED = 420;
 
 /** 같은 두 팽이가 연속 판정되는 것을 막는 최소 간격(초). */
 export const COLLISION_COOLDOWN_SECONDS = 0.08;
+
+// ─────────────────────────────────────────────────────────────
+// 넉백 (파생 합산값) 과 링아웃 개입 레버 L1·L2·L3
+//
+// 설계 근거: 02_게임설계.md §2-3 / §2-4 (game-director 확정).
+//  - 넉백은 5번째 스탯이 아니다. 파츠 3개의 knockback 값을 더한 파생값이며,
+//    아래 레버 3종의 세기만 결정한다. 스탯 4종에는 관여하지 않는다.
+//  - 세 레버는 전부 "강타"(접근속도가 임계를 넘은 충돌) 직후의 짧은 윈도우 안에서만 작동한다.
+//    상시 적용하면 방향키만으로 스스로 나가는 자폭 링아웃(T4)이 되살아난다.
+// ─────────────────────────────────────────────────────────────
+
+/** 넉백 합산이 이 값 이상이면 RIM PRESSURE(1단계). L1·L2 가 약하게 열린다. */
+export const KNOCKBACK_THRESHOLD_RIM_PRESSURE = 6;
+
+/** 넉백 합산이 이 값 이상이면 RING BREAKER(2단계). L1·L2·L3 전부 열린다. */
+export const KNOCKBACK_THRESHOLD_RING_BREAKER = 13;
+
+/**
+ * 강타 판정 접근 속도. 이 값 이상으로 부딪혀 들어간 충돌만 L1~L3 을 발동시킨다.
+ * COLLISION_MINIMUM_RELATIVE_SPEED(26) 과 COLLISION_STRENGTH_REFERENCE_SPEED(420) 사이.
+ */
+export const STRIKE_APPROACH_SPEED = 150;
+
+/**
+ * L1 — 강타 시 방어자에게 실리는 법선 방향 추가 속도(유닛/초).
+ * 임계1 도달만으로 받는 기본값 + 임계1 초과분 1점당 가산. 선형 비례로 두면
+ * 넉백 18(최대 빌드)이 임계1 빌드의 3배가 되어 T3 가 90%대로 폭주한다(2026-07-20 실측).
+ */
+export const KNOCKBACK_IMPULSE_BASE = 58;
+
+/** L1 — 임계1 초과 넉백 1점당 추가 속도(유닛/초). */
+export const KNOCKBACK_IMPULSE_PER_POINT = 2;
+
+/** L2 — 경직 중 방어자의 방향키 가속에 곱하는 계수. 0 이면 역추진 완전 차단. */
+export const STUN_ACCELERATION_FACTOR = 0;
+
+/** L2 경직 윈도우(초) — RIM PRESSURE 단계. */
+export const STUN_WINDOW_SECONDS_RIM_PRESSURE = 0.35;
+
+/** L2 경직 윈도우(초) — RING BREAKER 단계. */
+export const STUN_WINDOW_SECONDS_RING_BREAKER = 0.3;
+
+/** L3 — 턱 관통 윈도우(초). RING BREAKER 단계에서만 열린다. */
+export const LIP_PIERCE_WINDOW_SECONDS = 0.3;
+
+/**
+ * L3 — 턱 관통 중 DISH_LIP_ACCELERATION 에 곱하는 배율.
+ * 턱 자체를 없애거나 상시 완화하는 것은 금지(설계 D8). 강타 직후에만 얇아진다.
+ */
+export const LIP_PIERCE_MULTIPLIER = 0.85;
 
 // ─────────────────────────────────────────────────────────────
 // 배틀 진행

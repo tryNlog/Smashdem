@@ -20,6 +20,35 @@ export interface BeybladeStats {
   readonly control: number;
 }
 
+/**
+ * 파츠 특성이 건드릴 수 있는 밸런스 상수 4종에 대한 배율 묶음.
+ *
+ * 설계 제약(02_게임설계.md §3-3): 특성은 "기존 balance 상수 1개 × 배율 1개" 형태만 허용되고,
+ * 특성을 가진 파츠는 12종 중 최대 4종이다. 그래서 여기 키도 4개뿐이다.
+ * 전부 순수 숫자라 스냅샷 직렬화(S3)에 그대로 실린다.
+ */
+export interface BuildTuning {
+  /** STRIKE_APPROACH_SPEED 배율. 1 미만이면 더 낮은 속도에서도 강타로 인정된다. */
+  readonly strikeThresholdMultiplier: number;
+  /** KNOCKBACK_IMPULSE_PER_POINT 배율. */
+  readonly knockbackImpulseMultiplier: number;
+  /** BURST_GAUGE_REGENERATION_PER_SECOND 배율. */
+  readonly burstRegenerationMultiplier: number;
+  /** BURST_IMPULSE_SPEED 배율. */
+  readonly burstImpulseMultiplier: number;
+}
+
+/** 특성이 하나도 없는 상태(전부 배율 1.0). */
+export const NEUTRAL_TUNING: BuildTuning = {
+  strikeThresholdMultiplier: 1,
+  knockbackImpulseMultiplier: 1,
+  burstRegenerationMultiplier: 1,
+  burstImpulseMultiplier: 1,
+};
+
+/** 넉백 합산 구간. 표시명과 열리는 레버가 다르다. */
+export type KnockbackTier = 'none' | 'rimPressure' | 'ringBreaker';
+
 /** 패배 사유. */
 export type DefeatReason = 'none' | 'spinOut' | 'ringOut';
 
@@ -28,6 +57,18 @@ export interface Beyblade {
   readonly index: number;
   readonly name: string;
   readonly stats: BeybladeStats;
+
+  /** 장착 파츠 3개의 넉백 합산(파생값). 레버 L1~L3 의 세기만 결정한다. */
+  readonly knockback: number;
+  /** 넉백 합산이 속한 구간. 어떤 레버가 열리는지를 결정한다. */
+  readonly knockbackTier: KnockbackTier;
+  /** 파츠 특성이 만든 밸런스 상수 배율. */
+  readonly tuning: BuildTuning;
+
+  /** L2 — 남은 경직 시간(초). 0 보다 크면 방향키 가속이 STUN_ACCELERATION_FACTOR 로 눌린다. */
+  stunRemainingSeconds: number;
+  /** L3 — 남은 턱 관통 시간(초). 0 보다 크면 테두리 턱 복원 가속이 감쇠된다. */
+  lipPierceRemainingSeconds: number;
 
   positionX: number;
   positionY: number;

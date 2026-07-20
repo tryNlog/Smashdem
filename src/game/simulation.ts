@@ -83,10 +83,87 @@ function stepFightingPhase(
 ): void {
   state.battleElapsedSeconds += deltaSeconds;
 
+  advanceStrikeWindows(state, deltaSeconds);
   applyInputs(state, inputs, deltaSeconds);
   stepPhysics(state, deltaSeconds, true);
   resolveDefeatConditions(state);
   checkBattleEnd(state);
+}
+
+// ─────────────────────────────────────────────────────────────
+// 링아웃 개입 레버 L1·L2·L3 — 강타 윈도우
+//
+// 설계 근거: 02_게임설계.md §2-3. 세 레버는 전부 강타(접근속도가 임계 초과) 직후
+// 짧은 윈도우 안에서만 열린다. 상시 적용하면 방향키만으로 나가는 자폭 링아웃이 되살아나고,
+// 그 순간 "링아웃은 타격의 보상"이라는 설계 명제가 무효가 된다(T4 최우선).
+// ─────────────────────────────────────────────────────────────
+
+/** 강타 윈도우 잔여 시간 감소. 매 fighting 스텝의 맨 앞에서 한 번만 돈다. */
+function advanceStrikeWindows(state: BattleState, deltaSeconds: number): void {
+  for (const beyblade of state.beyblades) {
+    if (beyblade.stunRemainingSeconds > 0) {
+      beyblade.stunRemainingSeconds = Math.max(0, beyblade.stunRemainingSeconds - deltaSeconds);
+    }
+    if (beyblade.lipPierceRemainingSeconds > 0) {
+      beyblade.lipPierceRemainingSeconds = Math.max(
+        0,
+        beyblade.lipPierceRemainingSeconds - deltaSeconds,
+      );
+    }
+  }
+}
+
+/** 이 팽이가 강타로 인정받는 최소 접근 속도. 특성(크러시 레이어)이 이 값을 낮춘다. */
+function strikeThreshold(attacker: Beyblade): number {
+  return Balance.STRIKE_APPROACH_SPEED * attacker.tuning.strikeThresholdMultiplier;
+}
+
+/**
+ * 강타 성립 시 방어자에게 L1~L3 을 건다.
+ *
+ *  L1 넉백 임펄스 — 법선(공격자→방어자) 방향 추가 속도. 넉백 합산에 비례한다.
+ *  L2 경직        — 방어자의 방향키 가속 무효화. "피격 직후 역추진"을 직접 차단한다.
+ *  L3 턱 관통     — 방어자의 테두리 턱 복원 가속 감쇠. RING BREAKER 단계에서만 열린다.
+ *
+ * @param normalX 공격자 → 방어자 방향의 단위 벡터
+ */
+function applyKnockbackLevers(
+  attacker: Beyblade,
+  defender: Beyblade,
+  approachSpeed: number,
+  normalX: number,
+  normalY: number,
+): void {
+  // 넉백이 임계1 미만이면 레버가 전부 닫힌다(디렉터 D5). T1 미달의 직접 원인이며, §8 에 판정 요청으로 남긴다.
+  if (attacker.knockbackTier === 'none') return;
+  if (approachSpeed < strikeThreshold(attacker)) return;
+
+  // L1 — 넉백 임펄스.
+  // 방어자의 질량(weight)으로 나눈다. weight 는 types.ts 정의부터 "충돌 시 밀림 저항"인데
+  // 이 항이 없으면 넉백에 대해서만 weight 가 무효가 되어, 무거운 빌드가 링브레이커에게
+  // 아무 저항도 못 한다(2026-07-20 실측: 스태미나 빌드가 링브레이커전 22.5% 승률).
+  const excess = Math.max(0, attacker.knockback - Balance.KNOCKBACK_THRESHOLD_RIM_PRESSURE);
+  const impulseSpeed =
+    ((Balance.KNOCKBACK_IMPULSE_BASE + excess * Balance.KNOCKBACK_IMPULSE_PER_POINT) *
+      attacker.tuning.knockbackImpulseMultiplier) /
+    massMultiplier(defender.stats);
+  defender.velocityX += normalX * impulseSpeed;
+  defender.velocityY += normalY * impulseSpeed;
+
+  // L2 — 경직
+  const stunWindow =
+    attacker.knockbackTier === 'ringBreaker'
+      ? Balance.STUN_WINDOW_SECONDS_RING_BREAKER
+      : Balance.STUN_WINDOW_SECONDS_RIM_PRESSURE;
+  defender.stunRemainingSeconds = Math.max(defender.stunRemainingSeconds, stunWindow);
+
+  // L3 — 턱 관통 (RING BREAKER 에서만)
+  if (attacker.knockbackTier === 'ringBreaker') {
+    defender.lipPierceRemainingSeconds = Math.max(
+      defender.lipPierceRemainingSeconds,
+      Balance.LIP_PIERCE_WINDOW_SECONDS,
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -111,7 +188,10 @@ function applyInputs(
     if (beyblade.burstRemainingSeconds <= 0) {
       beyblade.burstGauge = Math.min(
         Balance.BURST_GAUGE_MAXIMUM,
-        beyblade.burstGauge + Balance.BURST_GAUGE_REGENERATION_PER_SECOND * deltaSeconds,
+        beyblade.burstGauge +
+          Balance.BURST_GAUGE_REGENERATION_PER_SECOND *
+            beyblade.tuning.burstRegenerationMultiplier *
+            deltaSeconds,
       );
     }
 
@@ -123,18 +203,25 @@ function applyInputs(
     const throttle = clamp(Math.hypot(input.moveX, input.moveY), 0, 1);
 
     const isBursting = beyblade.burstRemainingSeconds > 0;
+    // L2 경직 — 강타를 맞은 직후 짧은 시간 동안 방향키 가속이 죽는다.
+    // 여기가 "피격 직후 방어자가 다시 안쪽으로 추진해 바깥 속도를 상쇄하던" 문제의 개입 지점이다.
+    const stunFactor =
+      beyblade.stunRemainingSeconds > 0 ? Balance.STUN_ACCELERATION_FACTOR : 1;
     const acceleration =
       Balance.MOVE_ACCELERATION_BASE *
       controlMultiplier(beyblade.stats) *
       (isBursting ? Balance.BURST_ACCELERATION_MULTIPLIER : 1) *
+      stunFactor *
       throttle;
 
     beyblade.velocityX += inputDirectionX * acceleration * deltaSeconds;
     beyblade.velocityY += inputDirectionY * acceleration * deltaSeconds;
 
     // 대시 버스트 발동
+    // 경직 중에는 버스트도 나가지 않는다. 버스트만 살려두면 L2 가 무력화된다(임펄스로 역추진 가능).
     const canBurst =
       input.burst &&
+      beyblade.stunRemainingSeconds <= 0 &&
       beyblade.burstRemainingSeconds <= 0 &&
       beyblade.burstGauge >= Balance.BURST_GAUGE_COST;
 
@@ -151,8 +238,9 @@ function applyInputs(
         burstDirectionY = scratchDirection[1];
       }
 
-      beyblade.velocityX += burstDirectionX * Balance.BURST_IMPULSE_SPEED;
-      beyblade.velocityY += burstDirectionY * Balance.BURST_IMPULSE_SPEED;
+      const burstImpulse = Balance.BURST_IMPULSE_SPEED * beyblade.tuning.burstImpulseMultiplier;
+      beyblade.velocityX += burstDirectionX * burstImpulse;
+      beyblade.velocityY += burstDirectionY * burstImpulse;
 
       state.events.push({
         kind: 'burstActivated',
@@ -200,7 +288,11 @@ function applyDishSlope(state: BattleState, deltaSeconds: number): void {
     if (distanceRatio > Balance.DISH_LIP_THRESHOLD) {
       const climbRatio =
         (distanceRatio - Balance.DISH_LIP_THRESHOLD) / (1 - Balance.DISH_LIP_THRESHOLD);
-      accelerationMagnitude += Balance.DISH_LIP_ACCELERATION * climbRatio * climbRatio;
+      // L3 턱 관통 — 강타를 맞은 직후에만 턱이 얇아진다. 턱 자체는 그대로 둔다(D8).
+      const lipMultiplier =
+        beyblade.lipPierceRemainingSeconds > 0 ? Balance.LIP_PIERCE_MULTIPLIER : 1;
+      accelerationMagnitude +=
+        Balance.DISH_LIP_ACCELERATION * lipMultiplier * climbRatio * climbRatio;
     }
 
     // 중심을 향하는 단위 벡터 = -(위치) / 거리
@@ -340,6 +432,12 @@ function resolveCollisions(state: BattleState, deltaSeconds: number): void {
       applyCollisionDamage(attacker, defender, approachSpeed, 1);
       applyCollisionDamage(defender, attacker, approachSpeed, Balance.COLLISION_ATTACKER_RECOIL_RATIO);
 
+      // 링아웃 레버 L1·L2·L3 — 강타 판정을 통과한 경우에만.
+      // 법선은 항상 "공격자 → 방어자" 방향이어야 밀림이 바깥으로 간다.
+      const pushX = attacker === first ? normalX : -normalX;
+      const pushY = attacker === first ? normalY : -normalY;
+      applyKnockbackLevers(attacker, defender, approachSpeed, pushX, pushY);
+
       const strength = clamp(approachSpeed / Balance.COLLISION_STRENGTH_REFERENCE_SPEED, 0, 1);
       state.events.push({
         kind: 'collision',
@@ -422,8 +520,16 @@ function checkBattleEnd(state: BattleState): void {
   }
 
   if (survivors.length === 0) {
-    // 같은 스텝에 둘 다 탈락 — 무승부.
-    finishBattle(state, -1, 'draw');
+    // 같은 스텝에 둘 다 탈락. 동일 스탯 미러 매치에서 회전력 곡선이 겹쳐 자주 발생한다.
+    // 2차 판정: 중심에 더 가까운 쪽이 승(접시 중앙을 지킨 쪽). 그것마저 같으면 무승부.
+    // 근거: 02_게임설계.md §4-R5 — 서든데스 신설 전에 동점 처리 개선으로 T5 달성 가능한지 먼저 본다.
+    const winnerIndex = closestToCenterIndex(state.beyblades);
+    if (winnerIndex < 0) {
+      finishBattle(state, -1, 'draw');
+    } else {
+      const loser = state.beyblades.find((beyblade) => beyblade.index !== winnerIndex);
+      finishBattle(state, winnerIndex, loser?.defeatReason === 'ringOut' ? 'ringOut' : 'spinOut');
+    }
     return;
   }
 
@@ -441,8 +547,35 @@ function checkBattleEnd(state: BattleState): void {
         tied = true;
       }
     }
-    finishBattle(state, tied ? -1 : bestIndex, tied ? 'draw' : 'timeLimit');
+    if (tied) {
+      // 회전력이 같으면 중심 근접도로 2차 판정한다(§4-R5).
+      const closest = closestToCenterIndex(survivors);
+      finishBattle(state, closest, closest < 0 ? 'draw' : 'timeLimit');
+      return;
+    }
+    finishBattle(state, bestIndex, 'timeLimit');
   }
+}
+
+/**
+ * 중심에 가장 가까운 팽이의 인덱스. 완전 동률이면 -1.
+ * 무승부를 줄이기 위한 2차 판정 기준이다 — "접시 중앙을 지킨 쪽이 이긴다".
+ */
+function closestToCenterIndex(candidates: readonly Beyblade[]): number {
+  let bestIndex = -1;
+  let bestDistance = Infinity;
+  let tied = false;
+  for (const beyblade of candidates) {
+    const distance = Math.hypot(beyblade.positionX, beyblade.positionY);
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestIndex = beyblade.index;
+      tied = false;
+    } else if (distance === bestDistance) {
+      tied = true;
+    }
+  }
+  return tied ? -1 : bestIndex;
 }
 
 function finishBattle(
