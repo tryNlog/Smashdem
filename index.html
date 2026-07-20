@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- 인라인 favicon — 외부 파일 요청(404)을 없애고 배포 경로에 의존하지 않게 한다. -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpolygon points='16,2 20,12 30,16 20,20 16,30 12,20 2,16 12,12' fill='%235fe3ff'/%3E%3C/svg%3E"
+    />
+    <title>NAN 2026 — 팽이 배틀 (S0 물리 스파이크)</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #0b0d14;
+        color: #d8dcea;
+        font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
+        height: 100%;
+      }
+      #app {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100%;
+        gap: 12px;
+        padding: 16px 0;
+        box-sizing: border-box;
+      }
+      canvas {
+        background: #0b0d14;
+        border-radius: 8px;
+        max-width: 100%;
+        height: auto;
+        touch-action: none;
+      }
+      .help {
+        font-size: 13px;
+        line-height: 1.7;
+        opacity: 0.75;
+        text-align: center;
+      }
+      kbd {
+        background: #232839;
+        border: 1px solid #3a4159;
+        border-radius: 4px;
+        padding: 1px 6px;
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="game-canvas" width="960" height="620"></canvas>
+      <div class="help">
+        <kbd>← ↑ → ↓</kbd> / <kbd>W A S D</kbd> 이동 &nbsp;·&nbsp;
+        <kbd>Space</kbd> 대시 버스트 &nbsp;·&nbsp; <kbd>R</kbd> 재시작
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

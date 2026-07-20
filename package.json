@@ -1,0 +1,16 @@
+{
+  "name": "nan2026-spinner-battle",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "smoke": "vite build --ssr tools/headlessBattle.ts --outDir dist-tools --logLevel warn && node dist-tools/headlessBattle.js"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite": "^8.1.5"
+  }
+}

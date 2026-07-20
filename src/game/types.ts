@@ -1,0 +1,135 @@
+/**
+ * 시뮬레이션이 다루는 자료형 정의.
+ *
+ * 여기 있는 것 전부가 "직렬화 가능한 순수 데이터"여야 한다.
+ * (S3 에서 스냅샷을 JSON 으로 주고받고, 롤백을 위해 통째로 복제한다.)
+ * 함수·DOM 노드·Canvas 컨텍스트를 이 타입 안에 넣지 않는다.
+ */
+
+import type { RandomState } from '../engine/random';
+
+/** 팽이 스탯 4종. 기준값은 balance.STAT_BASELINE(=50). */
+export interface BeybladeStats {
+  /** 가하는 충돌 데미지 */
+  readonly attack: number;
+  /** 충돌 시 밀림 저항 + 받는 데미지 감소 */
+  readonly weight: number;
+  /** 회전력 자연 감소 저항 */
+  readonly stamina: number;
+  /** 방향 입력에 대한 가속력 */
+  readonly control: number;
+}
+
+/** 패배 사유. */
+export type DefeatReason = 'none' | 'spinOut' | 'ringOut';
+
+/** 한 대의 팽이. */
+export interface Beyblade {
+  readonly index: number;
+  readonly name: string;
+  readonly stats: BeybladeStats;
+
+  positionX: number;
+  positionY: number;
+  velocityX: number;
+  velocityY: number;
+
+  /** 물리 반경. */
+  radius: number;
+
+  /** 회전력(=HP). 0 이면 스핀아웃. */
+  spin: number;
+
+  /** 대시 버스트 게이지. */
+  burstGauge: number;
+  /** 남은 버스트 지속 시간(초). 0 보다 크면 버스트 중. */
+  burstRemainingSeconds: number;
+
+  /** 렌더 전용 — 팽이 몸체의 시각적 회전 각도(라디안). 물리에는 영향이 없다. */
+  visualSpinAngle: number;
+
+  alive: boolean;
+  defeatReason: DefeatReason;
+}
+
+/** 배틀 상태머신. 준비 → 전투 → 결착 → 결과. */
+export type BattlePhase = 'ready' | 'fighting' | 'settling' | 'finished';
+
+/** 라운드 결과 사유. */
+export type BattleOutcome = 'none' | 'spinOut' | 'ringOut' | 'timeLimit' | 'draw';
+
+/** 한 스텝에 시뮬레이션이 뱉는 연출용 이벤트. 렌더 계층이 소비한다. */
+export type SimulationEvent =
+  | {
+      readonly kind: 'collision';
+      readonly positionX: number;
+      readonly positionY: number;
+      /** 0~1 로 정규화한 충돌 세기. 히트스톱·화면 흔들림 강도의 입력. */
+      readonly strength: number;
+      readonly attackerIndex: number;
+      readonly defenderIndex: number;
+    }
+  | {
+      readonly kind: 'burstActivated';
+      readonly beybladeIndex: number;
+      readonly positionX: number;
+      readonly positionY: number;
+    }
+  | {
+      readonly kind: 'ringOut';
+      readonly beybladeIndex: number;
+      readonly positionX: number;
+      readonly positionY: number;
+    }
+  | {
+      readonly kind: 'spinOut';
+      readonly beybladeIndex: number;
+      readonly positionX: number;
+      readonly positionY: number;
+    }
+  | {
+      readonly kind: 'battleFinished';
+      /** 승자 인덱스. 무승부면 -1. */
+      readonly winnerIndex: number;
+      readonly outcome: BattleOutcome;
+    };
+
+/** 배틀 전체 상태. 이 객체 하나가 곧 세이브/스냅샷 단위다. */
+export interface BattleState {
+  phase: BattlePhase;
+  /** 현재 phase 로 들어온 뒤 지난 시간(초). */
+  phaseElapsedSeconds: number;
+  /** 'fighting' 이 시작된 뒤 지난 시간(초). 제한 시간 판정용. */
+  battleElapsedSeconds: number;
+  /** 시뮬 스텝 카운터. S3 의 네트워크 틱 번호가 된다. */
+  tick: number;
+
+  beyblades: Beyblade[];
+
+  /** 시뮬 내부 난수 상태. */
+  random: RandomState;
+
+  /**
+   * 팽이 쌍별 충돌 쿨다운(초). 인덱스는 pairKey(i, j) 로 계산.
+   * 같은 접촉이 여러 스텝에 걸쳐 반복 판정되는 것을 막는다.
+   */
+  collisionCooldowns: number[];
+
+  winnerIndex: number;
+  outcome: BattleOutcome;
+
+  /** 이번 스텝에 발생한 이벤트. 매 스텝 시작 시 비워진다. */
+  events: SimulationEvent[];
+}
+
+/** 한 팽이에 대한 한 스텝치 입력 명령. */
+export interface InputCommand {
+  /** 이동 입력 X (-1 ~ 1). 화면 오른쪽이 +. */
+  readonly moveX: number;
+  /** 이동 입력 Y (-1 ~ 1). 화면 아래쪽이 +. */
+  readonly moveY: number;
+  /** 이번 스텝에 대시 버스트를 발동하려는가. */
+  readonly burst: boolean;
+}
+
+export const NEUTRAL_INPUT: InputCommand = { moveX: 0, moveY: 0, burst: false };
