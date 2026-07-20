@@ -50,7 +50,7 @@ export const NEUTRAL_TUNING: BuildTuning = {
 export type KnockbackTier = 'none' | 'rimPressure' | 'ringBreaker';
 
 /** 패배 사유. */
-export type DefeatReason = 'none' | 'spinOut' | 'ringOut';
+export type DefeatReason = 'none' | 'spinOut' | 'ringOut' | 'selfRingOut';
 
 /** 한 대의 팽이. */
 export interface Beyblade {
@@ -69,6 +69,10 @@ export interface Beyblade {
   stunRemainingSeconds: number;
   /** L3 — 남은 턱 관통 시간(초). 0 보다 크면 테두리 턱 복원 가속이 감쇠된다. */
   lipPierceRemainingSeconds: number;
+  /** L3 — 현재 걸려 있는 턱 감쇠 배율. 강타 등급(임계2 / 사고)에 따라 다르다. */
+  lipPierceMultiplier: number;
+  /** 마지막으로 피격당한 배틀 경과 시간(초). 자폭 링아웃 판별에 쓴다. 미피격이면 -Infinity. */
+  lastStruckElapsedSeconds: number;
 
   positionX: number;
   positionY: number;
@@ -97,7 +101,15 @@ export interface Beyblade {
 export type BattlePhase = 'ready' | 'fighting' | 'settling' | 'finished';
 
 /** 라운드 결과 사유. */
-export type BattleOutcome = 'none' | 'spinOut' | 'ringOut' | 'timeLimit' | 'draw';
+export type BattleOutcome =
+  | 'none'
+  | 'spinOut'
+  | 'ringOut'
+  /** 직전 피격 없이 스스로(버스트 추진 등) 이탈. PM 판정 2026-07-20 — 결함이 아니라 재미 요소이며,
+   *  일반 링아웃 패배와 구분해 표시하고 즉시 재시작 동선으로 유도한다. */
+  | 'selfRingOut'
+  | 'timeLimit'
+  | 'draw';
 
 /** 한 스텝에 시뮬레이션이 뱉는 연출용 이벤트. 렌더 계층이 소비한다. */
 export type SimulationEvent =
@@ -121,6 +133,8 @@ export type SimulationEvent =
       readonly beybladeIndex: number;
       readonly positionX: number;
       readonly positionY: number;
+      /** 직전 피격 없이 스스로 나갔는가. 연출·문구를 가르는 값이다. */
+      readonly selfInflicted: boolean;
     }
   | {
       readonly kind: 'spinOut';

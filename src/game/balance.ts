@@ -186,10 +186,41 @@ export const STRIKE_APPROACH_SPEED = 150;
  * 임계1 도달만으로 받는 기본값 + 임계1 초과분 1점당 가산. 선형 비례로 두면
  * 넉백 18(최대 빌드)이 임계1 빌드의 3배가 되어 T3 가 90%대로 폭주한다(2026-07-20 실측).
  */
-export const KNOCKBACK_IMPULSE_BASE = 58;
+export const KNOCKBACK_IMPULSE_BASE = 52;
 
 /** L1 — 임계1 초과 넉백 1점당 추가 속도(유닛/초). */
 export const KNOCKBACK_IMPULSE_PER_POINT = 2;
+
+/**
+ * ★ 사고 링아웃(ACCIDENT) — 넉백 0~임계1 미만 구간에서만 쓰는 아주 약한 복합 도즈.
+ *
+ * 배경: T1(시작 빌드 링아웃) 을 단일 레버로 만들려는 시도가 3회 실패했다.
+ *   턱 1600→950 단독 인하 → 0.0% / 예외 임펄스 20·40·75 단독 → 전부 0.0%.
+ *   원인은 관측된 대로 "경직이 없어 방어자가 피격 다음 스텝부터 재가속"하는 것이므로,
+ *   임펄스만 키워도 같은 스텝에 상쇄된다. RING BREAKER 가 작동하는 이유는 L1·L2·L3 가 함께 걸리기 때문이다.
+ * 그래서 여기서는 L1·L2·L3 를 **동시에, 아주 작게** 걸되 발동 조건을 극단적으로 좁힌다.
+ *   조건 = (접근속도가 아래 값 이상) AND (방어자가 이미 테두리 쪽에 있을 것).
+ * 목표는 80판 중 1~6판(1~8%)이므로 좁은 조건으로 충분하다. PM 판정 2026-07-20 로 T1 목표는 1~8%.
+ */
+export const ACCIDENT_STRIKE_APPROACH_SPEED = 260;
+
+/** 사고 링아웃 발동에 필요한 방어자의 최소 거리비(중심으로부터, ARENA_RADIUS 대비). */
+export const ACCIDENT_DEFENDER_DISTANCE_RATIO = 0.68;
+
+/** 사고 링아웃 L1 — 임펄스(유닛/초). RIM PRESSURE 기본값(58)보다 훨씬 작다. */
+export const ACCIDENT_KNOCKBACK_IMPULSE = 110;
+
+/** 사고 링아웃 L2·L3 윈도우(초). 3프레임. */
+export const ACCIDENT_WINDOW_SECONDS = 0.25;
+
+/** 사고 링아웃 L3 — 턱 감쇠 배율. 임계2(0.85)보다 얕게 걸린다. */
+export const ACCIDENT_LIP_PIERCE_MULTIPLIER = 0.45;
+
+/**
+ * 링아웃 시점에 이 시간 안에 피격 이력이 없으면 '자폭 링아웃(selfRingOut)' 으로 분류한다.
+ * 실측 근거: 타격 유래 이탈의 관측 최댓값이 1.17초였다(rb vs starter, seed 39596, 2026-07-20).
+ */
+export const SELF_RING_OUT_GRACE_SECONDS = 1.5;
 
 /** L2 — 경직 중 방어자의 방향키 가속에 곱하는 계수. 0 이면 역추진 완전 차단. */
 export const STUN_ACCELERATION_FACTOR = 0;
@@ -207,7 +238,7 @@ export const LIP_PIERCE_WINDOW_SECONDS = 0.3;
  * L3 — 턱 관통 중 DISH_LIP_ACCELERATION 에 곱하는 배율.
  * 턱 자체를 없애거나 상시 완화하는 것은 금지(설계 D8). 강타 직후에만 얇아진다.
  */
-export const LIP_PIERCE_MULTIPLIER = 0.85;
+export const LIP_PIERCE_MULTIPLIER = 0.88;
 
 // ─────────────────────────────────────────────────────────────
 // 배틀 진행

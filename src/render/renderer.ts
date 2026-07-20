@@ -340,6 +340,9 @@ function describeOutcome(state: BattleState): string {
   switch (state.outcome) {
     case 'ringOut':
       return '링아웃 — 아레나 밖으로 밀려남';
+    case 'selfRingOut':
+      // 자폭 이탈. 문구·연출 강화와 즉시 재시작 동선은 technical-artist / gameplay-programmer 인계.
+      return '자폭 링아웃 — 스스로 아레나 밖으로 나감';
     case 'spinOut':
       return '스핀아웃 — 회전력 소진';
     case 'timeLimit':

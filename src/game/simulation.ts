@@ -134,8 +134,10 @@ function applyKnockbackLevers(
   normalX: number,
   normalY: number,
 ): void {
-  // 넉백이 임계1 미만이면 레버가 전부 닫힌다(디렉터 D5). T1 미달의 직접 원인이며, §8 에 판정 요청으로 남긴다.
-  if (attacker.knockbackTier === 'none') return;
+  if (attacker.knockbackTier === 'none') {
+    applyAccidentLevers(defender, approachSpeed, normalX, normalY);
+    return;
+  }
   if (approachSpeed < strikeThreshold(attacker)) return;
 
   // L1 — 넉백 임펄스.
@@ -163,6 +165,39 @@ function applyKnockbackLevers(
       defender.lipPierceRemainingSeconds,
       Balance.LIP_PIERCE_WINDOW_SECONDS,
     );
+    defender.lipPierceMultiplier = Balance.LIP_PIERCE_MULTIPLIER;
+  }
+}
+
+/**
+ * 사고 링아웃 — 넉백 0~임계1 미만 공격자가 만들 수 있는 유일한 링아웃 경로.
+ *
+ * L1·L2·L3 를 동시에, 아주 작게 건다. 단독 레버로는 방어자의 재가속에 상쇄돼 0% 였다(balance.ts 주석 참조).
+ * 발동 조건이 두 개(초강타 + 방어자가 이미 테두리 쪽) 라서 발생 빈도가 낮게 유지된다.
+ */
+function applyAccidentLevers(
+  defender: Beyblade,
+  approachSpeed: number,
+  normalX: number,
+  normalY: number,
+): void {
+  if (approachSpeed < Balance.ACCIDENT_STRIKE_APPROACH_SPEED) return;
+
+  const distanceRatio =
+    Math.hypot(defender.positionX, defender.positionY) / Balance.ARENA_RADIUS;
+  if (distanceRatio < Balance.ACCIDENT_DEFENDER_DISTANCE_RATIO) return;
+
+  const impulse = Balance.ACCIDENT_KNOCKBACK_IMPULSE / massMultiplier(defender.stats);
+  defender.velocityX += normalX * impulse;
+  defender.velocityY += normalY * impulse;
+
+  defender.stunRemainingSeconds = Math.max(
+    defender.stunRemainingSeconds,
+    Balance.ACCIDENT_WINDOW_SECONDS,
+  );
+  if (defender.lipPierceRemainingSeconds <= 0) {
+    defender.lipPierceRemainingSeconds = Balance.ACCIDENT_WINDOW_SECONDS;
+    defender.lipPierceMultiplier = Balance.ACCIDENT_LIP_PIERCE_MULTIPLIER;
   }
 }
 
@@ -290,7 +325,7 @@ function applyDishSlope(state: BattleState, deltaSeconds: number): void {
         (distanceRatio - Balance.DISH_LIP_THRESHOLD) / (1 - Balance.DISH_LIP_THRESHOLD);
       // L3 턱 관통 — 강타를 맞은 직후에만 턱이 얇아진다. 턱 자체는 그대로 둔다(D8).
       const lipMultiplier =
-        beyblade.lipPierceRemainingSeconds > 0 ? Balance.LIP_PIERCE_MULTIPLIER : 1;
+        beyblade.lipPierceRemainingSeconds > 0 ? beyblade.lipPierceMultiplier : 1;
       accelerationMagnitude +=
         Balance.DISH_LIP_ACCELERATION * lipMultiplier * climbRatio * climbRatio;
     }
@@ -429,6 +464,7 @@ function resolveCollisions(state: BattleState, deltaSeconds: number): void {
       // 방어자는 정타를 맞고, 공격자는 반동만 받는다.
       // 양쪽에 똑같은 데미지를 주면 같은 스탯끼리는 회전력 곡선이 완전히 겹쳐 무승부가 쏟아진다.
       // 비대칭을 두는 것이 물리적으로도(파고든 쪽이 유리) 게임적으로도(공격 보상) 맞다.
+      defender.lastStruckElapsedSeconds = state.battleElapsedSeconds;
       applyCollisionDamage(attacker, defender, approachSpeed, 1);
       applyCollisionDamage(defender, attacker, approachSpeed, Balance.COLLISION_ATTACKER_RECOIL_RATIO);
 
@@ -485,13 +521,19 @@ function resolveDefeatConditions(state: BattleState): void {
 
     const distanceFromCenter = Math.hypot(beyblade.positionX, beyblade.positionY);
     if (distanceFromCenter > Balance.ARENA_RADIUS) {
+      // 직전 피격 이력이 없으면 자폭 링아웃으로 분류한다.
+      // PM 판정(2026-07-20): 버스트 자력 이탈은 결함이 아니라 재미 요소다. 다만 일반 링아웃 패배와
+      // 구분해서 보여줘야 플레이어가 "내가 나갔구나"를 알고 다음 판으로 넘어간다.
+      const secondsSinceStruck = state.battleElapsedSeconds - beyblade.lastStruckElapsedSeconds;
+      const selfInflicted = !(secondsSinceStruck <= Balance.SELF_RING_OUT_GRACE_SECONDS);
       beyblade.alive = false;
-      beyblade.defeatReason = 'ringOut';
+      beyblade.defeatReason = selfInflicted ? 'selfRingOut' : 'ringOut';
       state.events.push({
         kind: 'ringOut',
         beybladeIndex: beyblade.index,
         positionX: beyblade.positionX,
         positionY: beyblade.positionY,
+        selfInflicted,
       });
       continue;
     }
@@ -515,7 +557,7 @@ function checkBattleEnd(state: BattleState): void {
   if (survivors.length === 1) {
     const winner = survivors[0];
     const loser = state.beyblades.find((beyblade) => !beyblade.alive);
-    finishBattle(state, winner.index, loser?.defeatReason === 'ringOut' ? 'ringOut' : 'spinOut');
+    finishBattle(state, winner.index, outcomeFromDefeatReason(loser?.defeatReason));
     return;
   }
 
@@ -528,7 +570,7 @@ function checkBattleEnd(state: BattleState): void {
       finishBattle(state, -1, 'draw');
     } else {
       const loser = state.beyblades.find((beyblade) => beyblade.index !== winnerIndex);
-      finishBattle(state, winnerIndex, loser?.defeatReason === 'ringOut' ? 'ringOut' : 'spinOut');
+      finishBattle(state, winnerIndex, outcomeFromDefeatReason(loser?.defeatReason));
     }
     return;
   }
@@ -576,6 +618,13 @@ function closestToCenterIndex(candidates: readonly Beyblade[]): number {
     }
   }
   return tied ? -1 : bestIndex;
+}
+
+/** 패자의 탈락 사유 → 라운드 결과 사유. */
+function outcomeFromDefeatReason(reason: Beyblade['defeatReason'] | undefined): BattleState['outcome'] {
+  if (reason === 'ringOut') return 'ringOut';
+  if (reason === 'selfRingOut') return 'selfRingOut';
+  return 'spinOut';
 }
 
 function finishBattle(

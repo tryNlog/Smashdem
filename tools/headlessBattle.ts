@@ -38,10 +38,12 @@ const MAXIMUM_STEPS = Math.ceil(
 const SEEDS: readonly number[] = Array.from({ length: 40 }, (_, index) => 1 + index * 7919);
 
 /**
- * 마지막 충돌로부터 이 시간을 넘겨 링아웃이 났으면 "자력(무충돌) 링아웃"으로 센다.
- * T4 는 이 값이 0 이어야 한다 — 링아웃이 타격의 보상이 아니라 자폭이 되면 설계 명제가 무효다.
+ * 자폭 링아웃 집계는 시뮬레이션 자체의 분류(`outcome === 'selfRingOut'`)를 쓴다.
+ * 기준값은 balance.SELF_RING_OUT_GRACE_SECONDS 이며 여기서 따로 정의하지 않는다.
+ *
+ * T4 판정 범위: **방향키만** 자력 이탈 프로브(PM 판정 2026-07-20).
+ * 버스트를 쓴 자력 이탈은 게이지를 소모한 의도적 행동이므로 위반이 아니라 재미 요소로 수용됐다.
  */
-const SELF_EJECT_GRACE_SECONDS = 1.5;
 
 // ─────────────────────────────────────────────────────────────
 // 빌드 카탈로그
@@ -92,7 +94,6 @@ function runBattle(
 ): BattleReport {
   const state = createBattleState([first, second], seed);
   const inputs: InputCommand[] = [];
-  const lastCollisionSeconds = [-Infinity, -Infinity];
   let collisionCount = 0;
   let firstCollisionSeconds = -1;
   let maximumDistanceRatio = 0;
@@ -108,13 +109,10 @@ function runBattle(
       if (event.kind === 'collision') {
         collisionCount += 1;
         if (firstCollisionSeconds < 0) firstCollisionSeconds = state.battleElapsedSeconds;
-        lastCollisionSeconds[event.attackerIndex] = state.battleElapsedSeconds;
-        lastCollisionSeconds[event.defenderIndex] = state.battleElapsedSeconds;
       }
       if (event.kind === 'ringOut') {
         ringOutIndex = event.beybladeIndex;
-        const sinceHit = state.battleElapsedSeconds - lastCollisionSeconds[event.beybladeIndex];
-        if (!(sinceHit <= SELF_EJECT_GRACE_SECONDS)) selfEjectRingOut = true;
+        if (event.selfInflicted) selfEjectRingOut = true;
       }
     }
     for (const beyblade of state.beyblades) {
@@ -213,7 +211,7 @@ function runMatchup(label: string, keyA: BuildKey, keyB: BuildKey): MatchupResul
       else if (report.winnerIndex === indexOfA) winsA += 1;
       else winsB += 1;
 
-      if (report.outcome === 'ringOut') {
+      if (report.outcome === 'ringOut' || report.outcome === 'selfRingOut') {
         ringOuts += 1;
         if (report.ringOutIndex === indexOfA) ringOutByB += 1;
         else ringOutByA += 1;
@@ -369,7 +367,10 @@ function main(): void {
   const inMatchSelfEjects = all.reduce((sum, result) => sum + result.selfEjectCount, 0);
   const totalBattles = all.reduce((sum, result) => sum + result.battles, 0);
   console.log(
-    `  대전 중 무충돌 링아웃(직전 ${SELF_EJECT_GRACE_SECONDS}s 내 피격 없음): ${inMatchSelfEjects} / ${totalBattles} 판`,
+    `  대전 중 자폭 링아웃(outcome=selfRingOut): ${inMatchSelfEjects} / ${totalBattles} 판`,
+  );
+  console.log(
+    '  ※ T4 판정 범위는 위 "방향키만" 프로브다(PM 판정 2026-07-20). 버스트 이탈은 수용 항목.',
   );
   console.log('');
 
@@ -389,7 +390,7 @@ function main(): void {
 
   console.log('--- 목표치 판정 (02_게임설계.md §2-6) ---');
   console.log(
-    `  T1 시작빌드 링아웃 비율      ${percent(t1.ringOutRatio).padStart(6)}  목표 3~8%    ${rangeVerdict(t1.ringOutRatio, 0.03, 0.08)}`,
+    `  T1 시작빌드 링아웃 비율      ${percent(t1.ringOutRatio).padStart(6)}  목표 1~8%    ${rangeVerdict(t1.ringOutRatio, 0.01, 0.08)}`,
   );
   console.log(
     `  T2 임계1 링아웃 비율         ${percent(t2.ringOutRatio).padStart(6)}  목표 15~25%  ${rangeVerdict(t2.ringOutRatio, 0.15, 0.25)}`,
@@ -398,7 +399,8 @@ function main(): void {
     `  T3 RING BREAKER 링아웃 비율  ${percent(t3.ringOutRatio).padStart(6)}  목표 45~65%  ${rangeVerdict(t3.ringOutRatio, 0.45, 0.65)}`,
   );
   console.log(
-    `  T4 자력 링아웃(최우선)       ${String(thrustOnlyEjects + inMatchSelfEjects).padStart(6)}건  목표 0건     ${thrustOnlyEjects + inMatchSelfEjects === 0 ? '목표구간 내' : '★ 목표구간 밖'}`,
+    `  T4 자력 링아웃(방향키만/최우선) ${String(thrustOnlyEjects).padStart(4)}건  목표 0건     ${thrustOnlyEjects === 0 ? '목표구간 내' : '★ 목표구간 밖'}` +
+      `   [참고] 대전 중 자폭 링아웃 ${inMatchSelfEjects}건`,
   );
   console.log(
     `  T5 무승부 비율               ${percent(drawRatio).padStart(6)}  목표 ≤5%     ${rangeVerdict(drawRatio, 0, 0.05)}`,

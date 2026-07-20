@@ -66,6 +66,8 @@ function createBeyblade(index: number, definition: BeybladeDefinition): Beyblade
     tuning: definition.tuning ?? NEUTRAL_TUNING,
     stunRemainingSeconds: 0,
     lipPierceRemainingSeconds: 0,
+    lipPierceMultiplier: 1,
+    lastStruckElapsedSeconds: -Infinity,
     positionX: 0,
     positionY: 0,
     velocityX: 0,
