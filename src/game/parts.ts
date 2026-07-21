@@ -118,7 +118,7 @@ export const DISK_PARTS: readonly Part[] = [
     id: 'D03',
     slot: 'disk',
     name: '인듀어 디스크',
-    statDelta: { stamina: 18, weight: 2 },
+    statDelta: { stamina: 20, weight: 2 },
     knockback: 0,
     blurb: '★ 스태미나 코어. 상대가 먼저 마르기를 기다린다.',
   },

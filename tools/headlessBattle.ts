@@ -405,10 +405,10 @@ function main(): void {
     `  T1' 시작빌드 배틀당 링아웃 ${t1p.ringOutsPerBattle.toFixed(2)}회  목표 0.1~0.6  ${rangeVerdict(t1p.ringOutsPerBattle, 0.1, 0.6)}`,
   );
   console.log(
-    `  T3' RB 배틀당 링아웃       ${t3p.ringOutsPerBattle.toFixed(2)}회  목표 2.0~4.5  ${rangeVerdict(t3p.ringOutsPerBattle, 2.0, 4.5)}`,
+    `  T3' RB 배틀당 링아웃       ${t3p.ringOutsPerBattle.toFixed(2)}회  목표 1.2~2.5(4차) ${rangeVerdict(t3p.ringOutsPerBattle, 1.2, 2.5)}`,
   );
   console.log(
-    `  T3b RB 링아웃 피니시 비율  ${percent(t3p.ringOutFinishRatio)}  목표 ≥40%    ${t3p.ringOutFinishRatio >= 0.4 ? '목표구간 내' : '★ 목표구간 밖'}`,
+    `  T3b RB 링아웃 피니시 비율  ${percent(t3p.ringOutFinishRatio)}  목표 ≥35%(4차)  ${t3p.ringOutFinishRatio >= 0.35 ? '목표구간 내' : '★ 목표구간 밖'}`,
   );
   console.log(
     `  T4 자력 링아웃(방향키만)   ${thrustOnlyEjects}건  목표 0건     ${thrustOnlyEjects === 0 ? '목표구간 내' : '★ 목표구간 밖'}`,
@@ -423,6 +423,44 @@ function main(): void {
     `  T8 첫 충돌까지 평균(핵심)  ${coreFirstCollision.toFixed(2)}s  목표 ≤3s     ${rangeVerdict(coreFirstCollision, 0, 3)}`,
   );
   console.log(`  결착 사유 분포(핵심 160판): ${JSON.stringify(dist)}`);
+  console.log('');
+
+  // ②단계 라운드로빈 — 아키타입 3종(세트·강화 0). T6(전체 승률)·T10(매치업별).
+  console.log('--- ②단계 라운드로빈 (아키타입 3종, 세트·강화 0) ---');
+  const mAS = runMatchup('어택 vs 스태미나', 'attack', 'stamina');
+  const mAR = runMatchup('어택 vs 링브레이커', 'attack', 'ringBreaker');
+  const mSR = runMatchup('스태미나 vs 링브레이커', 'stamina', 'ringBreaker');
+  [mAS, mAR, mSR].forEach(printMatchup);
+
+  // T6 — 각 아키타입 전체 승률(2매치업 × 80판 = 160판).
+  const atkOverall = (mAS.winsA + mAR.winsA) / (mAS.battles + mAR.battles);
+  const staOverall = (mAS.winsB + mSR.winsA) / (mAS.battles + mSR.battles);
+  const rbOverall = (mAR.winsB + mSR.winsB) / (mAR.battles + mSR.battles);
+  // T10 — 매치업별 승률(각 방향). winRateA 는 첫 키의 승률.
+  const rbVsSta = mSR.winsB / mSR.battles; // ★ 최우선 감시 매치업
+  console.log('');
+  console.log('--- ②단계 목표치 판정 (§2-6) ---');
+  console.log(
+    `  T6 어택 전체승률    ${percent(atkOverall)}  목표 45~60%  ${rangeVerdict(atkOverall, 0.45, 0.6)}`,
+  );
+  console.log(
+    `  T6 스태미나 전체승률 ${percent(staOverall)}  목표 45~60%  ${rangeVerdict(staOverall, 0.45, 0.6)}`,
+  );
+  console.log(
+    `  T6 링브레이커 전체승률 ${percent(rbOverall)}  목표 45~60%  ${rangeVerdict(rbOverall, 0.45, 0.6)}`,
+  );
+  console.log(
+    `  T10 어택 vs 스태미나  ${percent(mAS.winRateA)}  목표 30~70%  ${rangeVerdict(mAS.winRateA, 0.3, 0.7)}`,
+  );
+  console.log(
+    `  T10 어택 vs 링브레이커 ${percent(mAR.winRateA)}  목표 30~70%  ${rangeVerdict(mAR.winRateA, 0.3, 0.7)}`,
+  );
+  console.log(
+    `  T10 스태미나 vs 링브레이커 ${percent(mSR.winRateA)}  목표 30~70%  ${rangeVerdict(mSR.winRateA, 0.3, 0.7)}`,
+  );
+  console.log(
+    `  ★ T10 링브레이커 vs 스태미나 ${percent(rbVsSta)}  상한 70%(SET4 기준선)  ${rbVsSta <= 0.7 ? '상한 이하' : '★ 상한 초과'}`,
+  );
   console.log('');
 
   // 1,280판 실시간 실측
