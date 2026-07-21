@@ -23,6 +23,9 @@ import { NEUTRAL_TUNING } from './types';
 /** 파츠 슬롯 3종. */
 export type PartSlot = 'layer' | 'disk' | 'driver';
 
+/** 세트 태그 3종(아키타입 재사용). 무소속(시작 파츠 계열)은 undefined. §3-5. */
+export type SetTag = 'STRIKE' | 'GUARD' | 'BREAK';
+
 /** 특성이 건드릴 수 있는 대상 = BuildTuning 의 키. 신규 대상 추가 금지. */
 export type TraitTarget = keyof BuildTuning;
 
@@ -38,6 +41,8 @@ export interface Part {
   readonly statDelta: StatDelta;
   /** 넉백 값(0 포함). 3슬롯 합산이 파생 스탯이 된다. */
   readonly knockback: number;
+  /** 세트 태그. 3슬롯 전부 같은 태그면 세트 완성(3/3)으로 보너스 1항(§3-5). 무소속이면 생략. */
+  readonly set?: SetTag;
   /** 특성 — 없거나(undefined), balance 상수 1개에 대한 배율 1개. */
   readonly trait?: {
     readonly target: TraitTarget;
@@ -68,6 +73,7 @@ export const LAYER_PARTS: readonly Part[] = [
     name: '스트라이크 레이어',
     statDelta: { attack: 16 },
     knockback: 0,
+    set: 'STRIKE',
     blurb: '깎는 데 전부 투자. 밀어내지는 못한다.',
   },
   {
@@ -76,6 +82,7 @@ export const LAYER_PARTS: readonly Part[] = [
     name: '크러시 레이어',
     statDelta: { attack: 2 },
     knockback: 6,
+    set: 'GUARD',
     trait: {
       target: 'strikeThresholdMultiplier',
       multiplier: 0.78,
@@ -89,6 +96,7 @@ export const LAYER_PARTS: readonly Part[] = [
     name: '브레이커 레이어',
     statDelta: { attack: -12 },
     knockback: 9,
+    set: 'BREAK',
     blurb: '★ 링브레이커 코어. 공격력을 팔아 밀어내는 힘을 산다.',
   },
 ];
@@ -112,6 +120,7 @@ export const DISK_PARTS: readonly Part[] = [
     name: '헤비 디스크',
     statDelta: { weight: 16, stamina: -6 },
     knockback: 0,
+    set: 'STRIKE',
     blurb: '덜 밀리고 덜 아프다. 대신 빨리 지친다.',
   },
   {
@@ -120,6 +129,7 @@ export const DISK_PARTS: readonly Part[] = [
     name: '인듀어 디스크',
     statDelta: { stamina: 20, weight: 2 },
     knockback: 0,
+    set: 'GUARD',
     blurb: '★ 스태미나 코어. 상대가 먼저 마르기를 기다린다.',
   },
   {
@@ -128,6 +138,7 @@ export const DISK_PARTS: readonly Part[] = [
     name: '임팩트 디스크',
     statDelta: { weight: 8, stamina: -12 },
     knockback: 4,
+    set: 'BREAK',
     trait: {
       target: 'knockbackImpulseMultiplier',
       multiplier: 1.25,
@@ -156,6 +167,7 @@ export const DRIVER_PARTS: readonly Part[] = [
     name: '스파이크 드라이버',
     statDelta: { control: 16 },
     knockback: 0,
+    set: 'STRIKE',
     blurb: '원하는 각도로 파고든다. 조작 성향 최대.',
   },
   {
@@ -164,6 +176,7 @@ export const DRIVER_PARTS: readonly Part[] = [
     name: '플로우 드라이버',
     statDelta: { control: 6 },
     knockback: 0,
+    set: 'GUARD',
     trait: {
       target: 'burstRegenerationMultiplier',
       multiplier: 1.4,
@@ -177,6 +190,7 @@ export const DRIVER_PARTS: readonly Part[] = [
     name: '클로 드라이버',
     statDelta: { control: -10 },
     knockback: 5,
+    set: 'BREAK',
     trait: {
       target: 'burstImpulseMultiplier',
       multiplier: 1.45,
@@ -254,12 +268,40 @@ function clampStat(value: number): number {
   return Math.max(0, Math.min(100, value));
 }
 
+/** 슬롯별 강화 레벨(0~ENHANCE_LEVEL_CAP). 중복 획득 시 +1(R13). */
+export interface SlotLevels {
+  readonly layer: number;
+  readonly disk: number;
+  readonly driver: number;
+}
+
+/** buildProfile 옵션. 생략 시 강화 0 · 세트 보너스 미적용(②단계 기준선 보존). */
+export interface BuildOptions {
+  readonly levels?: SlotLevels;
+  /** 세트 3/3 완성 보너스를 적용할지. 게임 런타임/③단계 측정만 true. */
+  readonly applySetBonus?: boolean;
+}
+
+/** 3슬롯 전부 같은 세트 태그면 그 태그, 아니면 null(세트 미완성). SET2 로 슬롯당 1종이라 이 검사로 충분. */
+export function completedSet(build: Build): SetTag | null {
+  const tag = build.layer.set;
+  if (tag && build.disk.set === tag && build.driver.set === tag) return tag;
+  return null;
+}
+
 /**
  * 파츠 3개를 합산해 배틀에 들어갈 프로파일을 만든다.
  * 스탯은 기준값 STAT_BASELINE 에서 각 파츠 델타를 더하고 0~100 으로 자른다.
+ *
+ * 강화(R13/N11): 슬롯 레벨 L 이면 그 파츠의 스탯 델타·넉백에 (1 + L × ENHANCE_SCALE_PER_LEVEL) 를 곱한다.
+ * 세트(N10/SET1~4): applySetBonus 이고 3/3 완성이면 약점 축 보전 1항을 가산한다. 2/3 부분 보너스는 없다.
  */
-export function buildProfile(build: Build): BuildProfile {
-  const parts = [build.layer, build.disk, build.driver];
+export function buildProfile(build: Build, options: BuildOptions = {}): BuildProfile {
+  const entries = [
+    { part: build.layer, level: options.levels?.layer ?? 0 },
+    { part: build.disk, level: options.levels?.disk ?? 0 },
+    { part: build.driver, level: options.levels?.driver ?? 0 },
+  ];
 
   let attack = Balance.STAT_BASELINE;
   let weight = Balance.STAT_BASELINE;
@@ -272,12 +314,16 @@ export function buildProfile(build: Build): BuildProfile {
   let burstRegenerationMultiplier = NEUTRAL_TUNING.burstRegenerationMultiplier;
   let burstImpulseMultiplier = NEUTRAL_TUNING.burstImpulseMultiplier;
 
-  for (const part of parts) {
-    attack += part.statDelta.attack ?? 0;
-    weight += part.statDelta.weight ?? 0;
-    stamina += part.statDelta.stamina ?? 0;
-    control += part.statDelta.control ?? 0;
-    knockback += part.knockback;
+  for (const { part, level } of entries) {
+    // 강화 스케일 — 스탯 델타·넉백에만. 특성 배율(§3-3 "상수 1개 × 배율 1개")은 강화로 커지지 않는다.
+    const clampedLevel = Math.max(0, Math.min(Balance.ENHANCE_LEVEL_CAP, level));
+    const scale = 1 + clampedLevel * Balance.ENHANCE_SCALE_PER_LEVEL;
+
+    attack += (part.statDelta.attack ?? 0) * scale;
+    weight += (part.statDelta.weight ?? 0) * scale;
+    stamina += (part.statDelta.stamina ?? 0) * scale;
+    control += (part.statDelta.control ?? 0) * scale;
+    knockback += part.knockback * scale;
 
     if (!part.trait) continue;
     switch (part.trait.target) {
@@ -292,6 +338,21 @@ export function buildProfile(build: Build): BuildProfile {
         break;
       case 'burstImpulseMultiplier':
         burstImpulseMultiplier *= part.trait.multiplier;
+        break;
+    }
+  }
+
+  // 세트 3/3 완성 보너스(SET4=약점 축 보전). 2/3 부분 보너스 없음(SET1).
+  if (options.applySetBonus) {
+    switch (completedSet(build)) {
+      case 'STRIKE':
+        stamina += Balance.SET_BONUS_STRIKE_STAMINA;
+        break;
+      case 'GUARD':
+        weight += Balance.SET_BONUS_GUARD_WEIGHT;
+        break;
+      case 'BREAK':
+        stamina += Balance.SET_BONUS_BREAK_STAMINA;
         break;
     }
   }

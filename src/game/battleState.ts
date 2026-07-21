@@ -7,7 +7,7 @@
 
 import { cloneRandomState, createRandomState, nextRandomRange } from '../engine/random';
 import * as Balance from './balance';
-import type { Build } from './parts';
+import type { Build, BuildOptions } from './parts';
 import { buildProfile, knockbackTier, STARTER_BUILD } from './parts';
 import type { BattleState, Beyblade, BeybladeStats, BuildTuning, KnockbackTier } from './types';
 import { NEUTRAL_TUNING } from './types';
@@ -25,9 +25,13 @@ export interface BeybladeDefinition {
   readonly tuning?: BuildTuning;
 }
 
-/** 파츠 빌드에서 배틀용 정의를 만든다. */
-export function definitionFromBuild(name: string, build: Build): BeybladeDefinition {
-  const profile = buildProfile(build);
+/** 파츠 빌드에서 배틀용 정의를 만든다. options 로 강화 레벨·세트 보너스를 켠다(생략 시 기준선). */
+export function definitionFromBuild(
+  name: string,
+  build: Build,
+  options?: BuildOptions,
+): BeybladeDefinition {
+  const profile = buildProfile(build, options);
   return {
     name,
     stats: profile.stats,

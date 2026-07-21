@@ -20,10 +20,12 @@ import {
 } from '../src/game/battleState';
 import {
   ARCHETYPE_BUILDS,
+  buildFromIds,
   buildProfile,
   knockbackTierLabel,
   STARTER_BUILD,
   type Build,
+  type BuildOptions,
 } from '../src/game/parts';
 import { stepBattle } from '../src/game/simulation';
 import type { BattleState, InputCommand } from '../src/game/types';
@@ -228,6 +230,92 @@ function runMatchup(label: string, keyA: BuildKey, keyB: BuildKey): MatchupResul
       firstCollisionSamples > 0 ? totalFirstCollision / firstCollisionSamples : -1,
   };
 }
+
+// ─────────────────────────────────────────────────────────────
+// ③단계 — 세트/강화를 켠 임의 빌드 매치업 (options 로 세트 보너스·강화 레벨 주입)
+// ─────────────────────────────────────────────────────────────
+
+interface Side {
+  readonly label: string;
+  readonly build: Build;
+  readonly options?: BuildOptions;
+}
+
+/** runMatchup 과 같은 집계이나, 빌드·옵션을 직접 받는다(세트/강화 측정용). */
+function runSideMatchup(label: string, sideA: Side, sideB: Side): MatchupResult {
+  const categories: Record<string, number> = {};
+  let winsA = 0;
+  let winsB = 0;
+  let draws = 0;
+  let ringOutEventsTotal = 0;
+  let ringOutFinishes = 0;
+  let totalSeconds = 0;
+  let minimumSeconds = Infinity;
+  let maximumSeconds = 0;
+  let battles = 0;
+
+  const defA = definitionFromBuild('A', sideA.build, sideA.options);
+  const defB = definitionFromBuild('B', sideB.build, sideB.options);
+
+  for (const seed of SEEDS) {
+    for (const aFirst of [true, false]) {
+      const report = aFirst ? runBattle(defA, defB, seed) : runBattle(defB, defA, seed);
+      const indexOfA = aFirst ? 0 : 1;
+
+      battles += 1;
+      categories[report.category] = (categories[report.category] ?? 0) + 1;
+      totalSeconds += report.battleSeconds;
+      minimumSeconds = Math.min(minimumSeconds, report.battleSeconds);
+      maximumSeconds = Math.max(maximumSeconds, report.battleSeconds);
+      ringOutEventsTotal += report.ringOutEvents;
+      if (report.finishByRingOut) ringOutFinishes += 1;
+
+      if (report.category === 'draw') draws += 1;
+      else if (report.winnerIndex === indexOfA) winsA += 1;
+      else winsB += 1;
+    }
+  }
+
+  return {
+    label,
+    battles,
+    winsA,
+    winsB,
+    draws,
+    categories,
+    ringOutsPerBattle: ringOutEventsTotal / battles,
+    ringOutFinishRatio: ringOutFinishes / battles,
+    drawRatio: draws / battles,
+    winRateA: winsA / battles,
+    averageSeconds: totalSeconds / battles,
+    minimumSeconds,
+    maximumSeconds,
+    averageFirstCollisionSeconds: -1,
+  };
+}
+
+/** 세트 3/3 완성 빌드(슬롯당 1종). STRIKE=어택축 / GUARD=스태미나축 / BREAK=링브레이커축. */
+const SET_BUILDS = {
+  STRIKE: buildFromIds('L02', 'D02', 'R02'),
+  GUARD: buildFromIds('L03', 'D03', 'R03'),
+  BREAK: buildFromIds('L04', 'D04', 'R04'),
+} as const;
+
+/** 같은 축 2/3(드라이버를 무소속 R01 로 교체 — 세트 미완성이라 보너스 없음). T11 의 비교측. */
+const SET_INCOMPLETE_BUILDS = {
+  STRIKE: buildFromIds('L02', 'D02', 'R01'),
+  GUARD: buildFromIds('L03', 'D03', 'R01'),
+  BREAK: buildFromIds('L04', 'D04', 'R01'),
+} as const;
+
+/** 무소속 3종(시작 파츠 계열). T14 의 순수 강화 대상. */
+const UNSORTED_BUILD = buildFromIds('L01', 'D01', 'R01');
+
+const SETS_ON: BuildOptions = { applySetBonus: true };
+const MAX_LEVELS: BuildOptions = {
+  applySetBonus: true,
+  levels: { layer: Balance.ENHANCE_LEVEL_CAP, disk: Balance.ENHANCE_LEVEL_CAP, driver: Balance.ENHANCE_LEVEL_CAP },
+};
 
 // ─────────────────────────────────────────────────────────────
 // T4 — 자력 이탈 회귀 프로브 (전 빌드, 방향키만이 판정 범위)
@@ -461,6 +549,71 @@ function main(): void {
   console.log(
     `  ★ T10 링브레이커 vs 스태미나 ${percent(rbVsSta)}  상한 70%(SET4 기준선)  ${rbVsSta <= 0.7 ? '상한 이하' : '★ 상한 초과'}`,
   );
+  console.log('');
+
+  // ③단계 세트/강화 — N10·SET4·T11·T14
+  console.log('--- ③단계 세트 완성 빌드 최종 스탯 (세트 보너스 적용) ---');
+  for (const tag of ['STRIKE', 'GUARD', 'BREAK'] as const) {
+    const base = buildProfile(SET_BUILDS[tag]);
+    const withSet = buildProfile(SET_BUILDS[tag], SETS_ON);
+    console.log(
+      `  ${tag.padEnd(6)} ${[SET_BUILDS[tag].layer, SET_BUILDS[tag].disk, SET_BUILDS[tag].driver].map((p) => p.id).join('/')}  ` +
+        `보너스 전 atk${base.stats.attack}/wgt${base.stats.weight}/sta${base.stats.stamina}/ctl${base.stats.control}` +
+        ` → 후 atk${withSet.stats.attack}/wgt${withSet.stats.weight}/sta${withSet.stats.stamina}/ctl${withSet.stats.control}`,
+    );
+  }
+  console.log(
+    `  세트 보너스(N10, 약점 축 보전): STRIKE sta+${Balance.SET_BONUS_STRIKE_STAMINA} / GUARD wgt+${Balance.SET_BONUS_GUARD_WEIGHT} / BREAK sta+${Balance.SET_BONUS_BREAK_STAMINA}` +
+      ` / 강화 스케일 level당 +${Balance.ENHANCE_SCALE_PER_LEVEL}(상한 ${Balance.ENHANCE_LEVEL_CAP})`,
+  );
+  console.log('');
+
+  console.log('--- ③단계 T11 (세트 완성 vs 같은 축 2/3 미완성, 55~70%) ---');
+  const t11: Array<[string, MatchupResult]> = [];
+  for (const tag of ['STRIKE', 'GUARD', 'BREAK'] as const) {
+    const m = runSideMatchup(
+      `${tag} 완성 vs 2/3`,
+      { label: `${tag}3/3`, build: SET_BUILDS[tag], options: SETS_ON },
+      { label: `${tag}2/3`, build: SET_INCOMPLETE_BUILDS[tag], options: SETS_ON },
+    );
+    t11.push([tag, m]);
+    console.log(
+      `  ${tag.padEnd(6)} 완성측 승률 ${percent(m.winRateA)}  ${rangeVerdict(m.winRateA, 0.55, 0.7)}  (길이 ${m.averageSeconds.toFixed(1)}s)`,
+    );
+  }
+  console.log('');
+
+  console.log('--- ③단계 T14 (세트 완성 vs 순수 강화=무소속 3종 +3, 40~60%) ---');
+  for (const tag of ['STRIKE', 'GUARD', 'BREAK'] as const) {
+    const m = runSideMatchup(
+      `${tag} vs 무소속+3`,
+      { label: `${tag}3/3`, build: SET_BUILDS[tag], options: SETS_ON },
+      { label: '무소속+3', build: UNSORTED_BUILD, options: MAX_LEVELS },
+    );
+    console.log(
+      `  ${tag.padEnd(6)} 세트측 승률 ${percent(m.winRateA)}  ${rangeVerdict(m.winRateA, 0.4, 0.6)}  (길이 ${m.averageSeconds.toFixed(1)}s)`,
+    );
+  }
+  console.log('');
+
+  console.log('--- ★ ③단계 SET4 검증 (세트 후 RB vs 스태미나 ≤70%) ---');
+  const set4a = runSideMatchup(
+    'BREAK완성 vs GUARD완성',
+    { label: 'BREAK3/3', build: SET_BUILDS.BREAK, options: SETS_ON },
+    { label: 'GUARD3/3', build: SET_BUILDS.GUARD, options: SETS_ON },
+  );
+  const set4b = runSideMatchup(
+    'BREAK완성 vs 스태미나(세트없음)',
+    { label: 'BREAK3/3', build: SET_BUILDS.BREAK, options: SETS_ON },
+    { label: '스태미나', build: ARCHETYPE_BUILDS.stamina },
+  );
+  console.log(
+    `  BREAK완성 vs GUARD완성        RB 승률 ${percent(set4a.winRateA)}  상한 70%  ${set4a.winRateA <= 0.7 ? '상한 이하' : '★ 상한 초과 = SET4 위반'}`,
+  );
+  console.log(
+    `  BREAK완성 vs 스태미나(무세트) RB 승률 ${percent(set4b.winRateA)}  상한 70%  ${set4b.winRateA <= 0.7 ? '상한 이하' : '★ 상한 초과 = SET4 위반'}`,
+  );
+  console.log(`  (②단계 세트 0 기준선 RB vs 스태미나 63.7% 대비 변화를 본다)`);
   console.log('');
 
   // 1,280판 실시간 실측
