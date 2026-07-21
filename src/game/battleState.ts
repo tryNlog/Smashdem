@@ -68,6 +68,9 @@ function createBeyblade(index: number, definition: BeybladeDefinition): Beyblade
     lipPierceRemainingSeconds: 0,
     lipPierceMultiplier: 1,
     lastStruckElapsedSeconds: -Infinity,
+    ringOutCount: 0,
+    defeatByRingOut: false,
+    defeatSelfInflicted: false,
     positionX: 0,
     positionY: 0,
     velocityX: 0,
@@ -83,17 +86,14 @@ function createBeyblade(index: number, definition: BeybladeDefinition): Beyblade
 }
 
 /**
- * 라운드 시작 상태를 만든다.
- * seed 가 같으면 스폰 위치까지 완전히 동일하다(결정론 요건).
+ * 팽이들을 스폰 위치(원 둘레 등간격 + 시드 기반 각도 흔들림)에 배치한다.
+ * 배틀 시작과 링아웃 페널티 후 중앙 복귀(§2-1b 3번)가 같은 로직을 쓴다.
+ * random 을 소비하므로(결정론적), 같은 시드·같은 호출 순서면 항상 같은 배치가 나온다.
  */
-export function createBattleState(
-  definitions: readonly BeybladeDefinition[],
-  seed: number,
-): BattleState {
-  const random = createRandomState(seed);
-  const beyblades = definitions.map((definition, index) => createBeyblade(index, definition));
-
-  // 스폰: 원 둘레에 등간격 배치 + 시드 기반 각도 흔들림.
+export function positionBeybladesAtSpawn(
+  beyblades: readonly Beyblade[],
+  random: BattleState['random'],
+): void {
   const baseAngle = nextRandomRange(random, 0, Math.PI * 2);
   const angleStep = (Math.PI * 2) / Math.max(1, beyblades.length);
   for (const beyblade of beyblades) {
@@ -106,17 +106,34 @@ export function createBattleState(
     beyblade.positionX = Math.cos(angle) * Balance.SPAWN_DISTANCE_FROM_CENTER;
     beyblade.positionY = Math.sin(angle) * Balance.SPAWN_DISTANCE_FROM_CENTER;
   }
+}
+
+/**
+ * 라운드 시작 상태를 만든다.
+ * seed 가 같으면 스폰 위치까지 완전히 동일하다(결정론 요건).
+ */
+export function createBattleState(
+  definitions: readonly BeybladeDefinition[],
+  seed: number,
+): BattleState {
+  const random = createRandomState(seed);
+  const beyblades = definitions.map((definition, index) => createBeyblade(index, definition));
+
+  positionBeybladesAtSpawn(beyblades, random);
 
   return {
     phase: 'ready',
     phaseElapsedSeconds: 0,
     battleElapsedSeconds: 0,
     tick: 0,
+    resetFreezeRemainingSeconds: 0,
     beyblades,
     random,
     collisionCooldowns: new Array(64).fill(0),
     winnerIndex: -1,
     outcome: 'none',
+    finishByRingOut: false,
+    finishSelfInflicted: false,
     events: [],
   };
 }
@@ -128,11 +145,14 @@ export function cloneBattleState(state: BattleState): BattleState {
     phaseElapsedSeconds: state.phaseElapsedSeconds,
     battleElapsedSeconds: state.battleElapsedSeconds,
     tick: state.tick,
+    resetFreezeRemainingSeconds: state.resetFreezeRemainingSeconds,
     beyblades: state.beyblades.map((beyblade) => ({ ...beyblade })),
     random: cloneRandomState(state.random),
     collisionCooldowns: state.collisionCooldowns.slice(),
     winnerIndex: state.winnerIndex,
     outcome: state.outcome,
+    finishByRingOut: state.finishByRingOut,
+    finishSelfInflicted: state.finishSelfInflicted,
     events: state.events.slice(),
   };
 }

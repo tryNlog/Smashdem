@@ -186,10 +186,10 @@ export const STRIKE_APPROACH_SPEED = 150;
  * 임계1 도달만으로 받는 기본값 + 임계1 초과분 1점당 가산. 선형 비례로 두면
  * 넉백 18(최대 빌드)이 임계1 빌드의 3배가 되어 T3 가 90%대로 폭주한다(2026-07-20 실측).
  */
-export const KNOCKBACK_IMPULSE_BASE = 52;
+export const KNOCKBACK_IMPULSE_BASE = 85;
 
 /** L1 — 임계1 초과 넉백 1점당 추가 속도(유닛/초). */
-export const KNOCKBACK_IMPULSE_PER_POINT = 2;
+export const KNOCKBACK_IMPULSE_PER_POINT = 3.5;
 
 /**
  * ★ 사고 링아웃(ACCIDENT) — 넉백 0~임계1 미만 구간에서만 쓰는 아주 약한 복합 도즈.
@@ -202,25 +202,56 @@ export const KNOCKBACK_IMPULSE_PER_POINT = 2;
  *   조건 = (접근속도가 아래 값 이상) AND (방어자가 이미 테두리 쪽에 있을 것).
  * 목표는 80판 중 1~6판(1~8%)이므로 좁은 조건으로 충분하다. PM 판정 2026-07-20 로 T1 목표는 1~8%.
  */
-export const ACCIDENT_STRIKE_APPROACH_SPEED = 260;
+export const ACCIDENT_STRIKE_APPROACH_SPEED = 175;
 
 /** 사고 링아웃 발동에 필요한 방어자의 최소 거리비(중심으로부터, ARENA_RADIUS 대비). */
-export const ACCIDENT_DEFENDER_DISTANCE_RATIO = 0.68;
+export const ACCIDENT_DEFENDER_DISTANCE_RATIO = 0.52;
 
 /** 사고 링아웃 L1 — 임펄스(유닛/초). RIM PRESSURE 기본값(58)보다 훨씬 작다. */
-export const ACCIDENT_KNOCKBACK_IMPULSE = 110;
+export const ACCIDENT_KNOCKBACK_IMPULSE = 140;
 
 /** 사고 링아웃 L2·L3 윈도우(초). 3프레임. */
-export const ACCIDENT_WINDOW_SECONDS = 0.25;
+export const ACCIDENT_WINDOW_SECONDS = 0.30;
 
 /** 사고 링아웃 L3 — 턱 감쇠 배율. 임계2(0.85)보다 얕게 걸린다. */
 export const ACCIDENT_LIP_PIERCE_MULTIPLIER = 0.45;
 
 /**
- * 링아웃 시점에 이 시간 안에 피격 이력이 없으면 '자폭 링아웃(selfRingOut)' 으로 분류한다.
+ * 링아웃 시점에 이 시간 안에 피격 이력이 없으면 '자폭 이탈' 로 분류한다.
  * 실측 근거: 타격 유래 이탈의 관측 최댓값이 1.17초였다(rb vs starter, seed 39596, 2026-07-20).
+ * 2026-07-21 개정: 이제 즉시 패배가 아니라 페널티 계수·연출 라벨만 가른다(§2-1c).
  */
 export const SELF_RING_OUT_GRACE_SECONDS = 1.5;
+
+// ─────────────────────────────────────────────────────────────
+// 링아웃 페널티 (2026-07-21 개정 — N8·N9)
+//
+// 설계 근거: 02_게임설계.md §2-1b / §11-1 (PM 결정 M6=회전력).
+//  - 링아웃은 결착이 아니다. 링 밖으로 나가면 회전력을 크게 잃고 중앙으로 복귀한다.
+//  - 그 페널티로 회전력이 0 이하가 되면 그 링아웃이 결착("링아웃 피니시" = 스핀아웃의 한 형태).
+//  - RING BREAKER 아키타입의 생존이 전적으로 N8 에 달렸다(§11-1-c): 계수가 작으면
+//    "밀어내기만 하고 못 이기는 빌드", 크면 링아웃 1~2회로 즉승 회귀. T3'·T3b·T7 이 동시에 조인다.
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * N8 — 피격 링아웃 페널티 계수. 이탈자 회전력에서 (SPIN_MAXIMUM × 이 값) 만큼 차감한다.
+ * 시작점 제안 0.30(§2-1b). S2 ①단계 실측으로 확정 대상.
+ */
+export const RING_OUT_PENALTY_COEFFICIENT = 0.30;
+
+/**
+ * 자폭 링아웃(직전 피격 없이 스스로 이탈) 페널티 계수.
+ * 제약(§2-1c / D10): 자폭 계수 ≥ 피격 계수. 자폭이 더 가벼우면 불리한 위치에서
+ * 일부러 나가 중앙으로 리셋하는 이득이 생긴다. 동일값으로 시작한다.
+ */
+export const SELF_RING_OUT_PENALTY_COEFFICIENT = 0.30;
+
+/**
+ * N9 — 링아웃 페널티 후 중앙 복귀 리셋 프리즈 길이(초). 0.5~0.8 범위 내 확정(§2-1b 4번).
+ * 이 동안 입력·물리·충돌·판정이 정지한다. 라운드 제한 90초에 포함된다(D13).
+ * 시뮬 틱 기준으로만 감소한다 — 결정론·S3 PvP 의 전제.
+ */
+export const RING_OUT_RESET_FREEZE_SECONDS = 0.6;
 
 /** L2 — 경직 중 방어자의 방향키 가속에 곱하는 계수. 0 이면 역추진 완전 차단. */
 export const STUN_ACCELERATION_FACTOR = 0;
@@ -229,16 +260,16 @@ export const STUN_ACCELERATION_FACTOR = 0;
 export const STUN_WINDOW_SECONDS_RIM_PRESSURE = 0.35;
 
 /** L2 경직 윈도우(초) — RING BREAKER 단계. */
-export const STUN_WINDOW_SECONDS_RING_BREAKER = 0.3;
+export const STUN_WINDOW_SECONDS_RING_BREAKER = 0.32;
 
 /** L3 — 턱 관통 윈도우(초). RING BREAKER 단계에서만 열린다. */
-export const LIP_PIERCE_WINDOW_SECONDS = 0.3;
+export const LIP_PIERCE_WINDOW_SECONDS = 0.5;
 
 /**
  * L3 — 턱 관통 중 DISH_LIP_ACCELERATION 에 곱하는 배율.
  * 턱 자체를 없애거나 상시 완화하는 것은 금지(설계 D8). 강타 직후에만 얇아진다.
  */
-export const LIP_PIERCE_MULTIPLIER = 0.88;
+export const LIP_PIERCE_MULTIPLIER = 0.5;
 
 // ─────────────────────────────────────────────────────────────
 // 배틀 진행

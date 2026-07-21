@@ -74,6 +74,21 @@ export interface Beyblade {
   /** 마지막으로 피격당한 배틀 경과 시간(초). 자폭 링아웃 판별에 쓴다. 미피격이면 -Infinity. */
   lastStruckElapsedSeconds: number;
 
+  /**
+   * 이 팽이가 이 판에서 링 밖으로 나간 횟수(HUD 링아웃 카운터).
+   * 2026-07-21 개정: 링아웃은 즉시 패배가 아니라 회전력 페널티 + 중앙 복귀이므로,
+   * 한 판 안에서 여러 번 누적된다(02_게임설계.md §2-1b).
+   */
+  ringOutCount: number;
+  /**
+   * 이 팽이가 패배했을 때, 그 결착타가 링아웃 페널티였는가(= '링아웃 피니시').
+   * defeatReason 은 'spinOut' 으로 두되(§2-1b: 결착 사유 spinOut + 원인 플래그 byRingOut),
+   * 이 플래그로 링아웃 피니시를 집계·연출 구분한다.
+   */
+  defeatByRingOut: boolean;
+  /** 위 링아웃 피니시가 자폭 이탈이었는가(직전 피격 없이 스스로 나감). */
+  defeatSelfInflicted: boolean;
+
   positionX: number;
   positionY: number;
   velocityX: number;
@@ -135,6 +150,12 @@ export type SimulationEvent =
       readonly positionY: number;
       /** 직전 피격 없이 스스로 나갔는가. 연출·문구를 가르는 값이다. */
       readonly selfInflicted: boolean;
+      /**
+       * 이 링아웃 페널티로 회전력이 0 이 되어 그대로 결착났는가(= '링아웃 피니시').
+       * false 면 페널티 후 중앙 복귀·리셋 프리즈로 이어진다(§2-1b).
+       * F3(컷 4) 연출은 finish 여부로 마지막 이탈을 강조한다.
+       */
+      readonly finish: boolean;
     }
   | {
       readonly kind: 'spinOut';
@@ -147,6 +168,10 @@ export type SimulationEvent =
       /** 승자 인덱스. 무승부면 -1. */
       readonly winnerIndex: number;
       readonly outcome: BattleOutcome;
+      /** 결착타가 링아웃 페널티였는가(= 링아웃 피니시). outcome 은 'spinOut' 으로 유지된다(§2-1b). */
+      readonly byRingOut: boolean;
+      /** 링아웃 피니시가 자폭 이탈이었는가. */
+      readonly selfInflicted: boolean;
     };
 
 /** 배틀 전체 상태. 이 객체 하나가 곧 세이브/스냅샷 단위다. */
@@ -158,6 +183,13 @@ export interface BattleState {
   battleElapsedSeconds: number;
   /** 시뮬 스텝 카운터. S3 의 네트워크 틱 번호가 된다. */
   tick: number;
+
+  /**
+   * 링아웃 페널티 후 중앙 복귀 리셋 프리즈의 남은 시간(초). 0 보다 크면 프리즈 중이며
+   * 입력·물리·충돌·판정이 정지한다. 시뮬 틱 기준으로만 감소한다(결정론·S3 전제, §2-1b 4번).
+   * 라운드 제한 90초는 이 프리즈 시간을 포함한다(D13) — 시계를 멈추지 않는다.
+   */
+  resetFreezeRemainingSeconds: number;
 
   beyblades: Beyblade[];
 
@@ -172,6 +204,10 @@ export interface BattleState {
 
   winnerIndex: number;
   outcome: BattleOutcome;
+  /** 결착타가 링아웃 페널티였는가(= 링아웃 피니시). outcome='spinOut' 과 함께 읽는다(§2-1b). */
+  finishByRingOut: boolean;
+  /** 위 링아웃 피니시가 자폭 이탈이었는가. */
+  finishSelfInflicted: boolean;
 
   /** 이번 스텝에 발생한 이벤트. 매 스텝 시작 시 비워진다. */
   events: SimulationEvent[];

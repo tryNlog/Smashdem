@@ -13,7 +13,7 @@
 
 import { clamp, normalizeInto } from '../engine/vector';
 import * as Balance from './balance';
-import { pairKey } from './battleState';
+import { pairKey, positionBeybladesAtSpawn } from './battleState';
 import {
   attackMultiplier,
   controlMultiplier,
@@ -82,6 +82,21 @@ function stepFightingPhase(
   deltaSeconds: number,
 ): void {
   state.battleElapsedSeconds += deltaSeconds;
+
+  // 링아웃 페널티 후 리셋 프리즈(§2-1b 4번). 입력·물리·충돌·판정 전부 정지하되,
+  // 시계(battleElapsedSeconds)는 계속 흐른다(D13: 라운드 제한이 프리즈를 포함).
+  // 프리즈 타이머는 시뮬 dt 로만 줄어든다 — 결정론·S3 전제.
+  if (state.resetFreezeRemainingSeconds > 0) {
+    state.resetFreezeRemainingSeconds = Math.max(
+      0,
+      state.resetFreezeRemainingSeconds - deltaSeconds,
+    );
+    // 프리즈가 라운드 제한을 넘겨 끝나는 드문 경우만 판정으로 종료시킨다.
+    if (state.battleElapsedSeconds >= Balance.ROUND_TIME_LIMIT_SECONDS) {
+      checkBattleEnd(state);
+    }
+    return;
+  }
 
   advanceStrikeWindows(state, deltaSeconds);
   applyInputs(state, inputs, deltaSeconds);
@@ -514,27 +529,52 @@ function applyCollisionDamage(
 // 승패 판정
 // ─────────────────────────────────────────────────────────────
 
-/** 링아웃(아레나 이탈) / 스핀아웃(회전력 0) 판정. */
+/**
+ * 링아웃 페널티 / 스핀아웃(회전력 0) 판정. (2026-07-21 전면 개정 — §2-1b)
+ *
+ * 링아웃은 더 이상 즉시 결착이 아니다. 링 밖으로 나가면:
+ *  1) 이탈자 회전력에서 (최대치 × 페널티 계수 N8) 차감.
+ *  2) 차감 결과 ≤ 0 → 결착(= 링아웃 피니시). 결착 사유 'spinOut' + defeatByRingOut 플래그.
+ *  3) > 0 → 양쪽 모두 중앙 복귀 + 리셋 프리즈(N9). 판은 계속된다.
+ * 자폭 이탈(직전 피격 없음)도 동일 절차. 단 계수는 자폭 ≥ 피격(§2-1c).
+ */
 function resolveDefeatConditions(state: BattleState): void {
+  let ringOutNeedsReset = false;
+
   for (const beyblade of state.beyblades) {
     if (!beyblade.alive) continue;
 
     const distanceFromCenter = Math.hypot(beyblade.positionX, beyblade.positionY);
     if (distanceFromCenter > Balance.ARENA_RADIUS) {
-      // 직전 피격 이력이 없으면 자폭 링아웃으로 분류한다.
-      // PM 판정(2026-07-20): 버스트 자력 이탈은 결함이 아니라 재미 요소다. 다만 일반 링아웃 패배와
-      // 구분해서 보여줘야 플레이어가 "내가 나갔구나"를 알고 다음 판으로 넘어간다.
+      // 직전 피격 이력이 없으면 자폭 이탈로 분류(연출 라벨 + 페널티 계수만 가른다. 즉사 아님).
       const secondsSinceStruck = state.battleElapsedSeconds - beyblade.lastStruckElapsedSeconds;
       const selfInflicted = !(secondsSinceStruck <= Balance.SELF_RING_OUT_GRACE_SECONDS);
-      beyblade.alive = false;
-      beyblade.defeatReason = selfInflicted ? 'selfRingOut' : 'ringOut';
+      const coefficient = selfInflicted
+        ? Balance.SELF_RING_OUT_PENALTY_COEFFICIENT
+        : Balance.RING_OUT_PENALTY_COEFFICIENT;
+
+      beyblade.spin = Math.max(0, beyblade.spin - Balance.SPIN_MAXIMUM * coefficient);
+      beyblade.ringOutCount += 1;
+
+      const finish = beyblade.spin <= 0;
       state.events.push({
         kind: 'ringOut',
         beybladeIndex: beyblade.index,
         positionX: beyblade.positionX,
         positionY: beyblade.positionY,
         selfInflicted,
+        finish,
       });
+
+      if (finish) {
+        // 링아웃 피니시 = 스핀아웃의 한 형태. 결착 사유는 'spinOut', 원인은 플래그로 남긴다.
+        beyblade.alive = false;
+        beyblade.defeatReason = 'spinOut';
+        beyblade.defeatByRingOut = true;
+        beyblade.defeatSelfInflicted = selfInflicted;
+      } else {
+        ringOutNeedsReset = true;
+      }
       continue;
     }
 
@@ -549,6 +589,35 @@ function resolveDefeatConditions(state: BattleState): void {
       });
     }
   }
+
+  // 페널티를 받고도 살아남은 링아웃이 있으면 양쪽을 중앙으로 복귀시키고 프리즈에 들어간다.
+  // 결착이 난 판(누군가 죽음)에서는 리셋하지 않는다 — 죽은 팽이가 있으면 every(alive) 가 false.
+  if (ringOutNeedsReset && state.beyblades.every((beyblade) => beyblade.alive)) {
+    resetAfterRingOut(state);
+  }
+}
+
+/**
+ * 링아웃 페널티 후 중앙 복귀 + 리셋 프리즈 진입(§2-1b 3·4번).
+ * 배틀 시작 스폰 로직을 재사용한다("신규 물리 시스템 없음"). 이탈자만 되돌리면 공격자가 링 밖에
+ * 남는 상태가 생기므로 양쪽 모두 복귀시킨다.
+ * random 을 소비하지만 시드 기반이라 결정론이 유지된다.
+ */
+function resetAfterRingOut(state: BattleState): void {
+  positionBeybladesAtSpawn(state.beyblades, state.random);
+  for (const beyblade of state.beyblades) {
+    beyblade.velocityX = 0;
+    beyblade.velocityY = 0;
+    // 강타 윈도우·버스트 지속 등 전이 상태를 정리한다(스폰 직후 상태와 동일하게).
+    beyblade.stunRemainingSeconds = 0;
+    beyblade.lipPierceRemainingSeconds = 0;
+    beyblade.lipPierceMultiplier = 1;
+    beyblade.burstRemainingSeconds = 0;
+    // 복귀 직후 프리즈 동안의 피격 이력이 없으므로 자폭 판별 기준도 초기화한다.
+    beyblade.lastStruckElapsedSeconds = -Infinity;
+  }
+  state.collisionCooldowns.fill(0);
+  state.resetFreezeRemainingSeconds = Balance.RING_OUT_RESET_FREEZE_SECONDS;
 }
 
 function checkBattleEnd(state: BattleState): void {
@@ -557,7 +626,13 @@ function checkBattleEnd(state: BattleState): void {
   if (survivors.length === 1) {
     const winner = survivors[0];
     const loser = state.beyblades.find((beyblade) => !beyblade.alive);
-    finishBattle(state, winner.index, outcomeFromDefeatReason(loser?.defeatReason));
+    finishBattle(
+      state,
+      winner.index,
+      outcomeFromDefeatReason(loser?.defeatReason),
+      loser?.defeatByRingOut ?? false,
+      loser?.defeatSelfInflicted ?? false,
+    );
     return;
   }
 
@@ -570,7 +645,13 @@ function checkBattleEnd(state: BattleState): void {
       finishBattle(state, -1, 'draw');
     } else {
       const loser = state.beyblades.find((beyblade) => beyblade.index !== winnerIndex);
-      finishBattle(state, winnerIndex, outcomeFromDefeatReason(loser?.defeatReason));
+      finishBattle(
+        state,
+        winnerIndex,
+        outcomeFromDefeatReason(loser?.defeatReason),
+        loser?.defeatByRingOut ?? false,
+        loser?.defeatSelfInflicted ?? false,
+      );
     }
     return;
   }
@@ -631,10 +712,14 @@ function finishBattle(
   state: BattleState,
   winnerIndex: number,
   outcome: BattleState['outcome'],
+  byRingOut = false,
+  selfInflicted = false,
 ): void {
   state.winnerIndex = winnerIndex;
   state.outcome = outcome;
-  state.events.push({ kind: 'battleFinished', winnerIndex, outcome });
+  state.finishByRingOut = byRingOut;
+  state.finishSelfInflicted = selfInflicted;
+  state.events.push({ kind: 'battleFinished', winnerIndex, outcome, byRingOut, selfInflicted });
   enterPhase(state, 'settling');
 }
 
