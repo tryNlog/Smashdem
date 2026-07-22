@@ -292,7 +292,7 @@ export const LIP_PIERCE_MULTIPLIER = 0.5;
  */
 export const SET_BONUS_STRIKE_STAMINA = 4;
 export const SET_BONUS_GUARD_WEIGHT = 4;
-export const SET_BONUS_BREAK_STAMINA = 1;
+export const SET_BONUS_BREAK_STAMINA = 5;
 
 /**
  * N11 — 중복 강화 스케일. 파츠 level 1당 그 파츠의 스탯 델타·넉백에 더해지는 비율.

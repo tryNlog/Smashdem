@@ -596,7 +596,7 @@ function main(): void {
   }
   console.log('');
 
-  console.log('--- ★ ③단계 SET4 검증 (세트 후 RB vs 스태미나 ≤70%) ---');
+  console.log('--- ★ ③단계 SET4′ 검증 (세트 후 RB vs 스태미나: 완성매치 ≤75%(§15-B), 무세트 T10 ≤70%) ---');
   const set4a = runSideMatchup(
     'BREAK완성 vs GUARD완성',
     { label: 'BREAK3/3', build: SET_BUILDS.BREAK, options: SETS_ON },
@@ -608,12 +608,12 @@ function main(): void {
     { label: '스태미나', build: ARCHETYPE_BUILDS.stamina },
   );
   console.log(
-    `  BREAK완성 vs GUARD완성        RB 승률 ${percent(set4a.winRateA)}  상한 70%  ${set4a.winRateA <= 0.7 ? '상한 이하' : '★ 상한 초과 = SET4 위반'}`,
+    `  BREAK완성 vs GUARD완성        RB 승률 ${percent(set4a.winRateA)}  상한 75%(SET4′)  ${set4a.winRateA <= 0.75 ? '상한 이하' : '★ 상한 초과 = SET4′ 위반'}`,
   );
   console.log(
-    `  BREAK완성 vs 스태미나(무세트) RB 승률 ${percent(set4b.winRateA)}  상한 70%  ${set4b.winRateA <= 0.7 ? '상한 이하' : '★ 상한 초과 = SET4 위반'}`,
+    `  BREAK완성 vs 스태미나(무세트) RB 승률 ${percent(set4b.winRateA)}  상한 75%(SET4′)  ${set4b.winRateA <= 0.75 ? '상한 이하' : '★ 상한 초과 = SET4′ 위반'}`,
   );
-  console.log(`  (②단계 세트 0 기준선 RB vs 스태미나 63.7% 대비 변화를 본다)`);
+  console.log(`  (②단계 세트 0 기준선 RB vs 스태미나 63.7% 대비 변화를 본다. sta 보너스 포화로 ~70% 에서 정체)`);
   console.log('');
 
   // 1,280판 실시간 실측
