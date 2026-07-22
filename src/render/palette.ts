@@ -29,6 +29,13 @@ export const ARENA_COLORS = {
   centerGlow: 'rgba(120, 170, 255, 0.10)',
 } as const;
 
+/** 세트 태그별 색 (F1 세트 진행 표시 · 3택1 카드 · 출전 카드 공용). */
+export const SET_COLORS = {
+  STRIKE: '#ff7a7a',
+  GUARD: '#7ab6ff',
+  BREAK: '#ffb14e',
+} as const;
+
 export const HUD_COLORS = {
   panelBackground: 'rgba(18, 22, 34, 0.85)',
   label: '#aab3cc',

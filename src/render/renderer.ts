@@ -9,9 +9,24 @@
 
 import * as Balance from '../game/balance';
 import type { BattleState, Beyblade } from '../game/types';
+import type { SetTag } from '../game/parts';
 import { clamp } from '../engine/vector';
 import { advanceEffects, type EffectBuffer } from './effects';
-import { ARENA_COLORS, BEYBLADE_APPEARANCES, HUD_COLORS } from './palette';
+import { ARENA_COLORS, BEYBLADE_APPEARANCES, HUD_COLORS, SET_COLORS } from './palette';
+
+/**
+ * 배틀 HUD 에 얹을 런 문맥(판 카운터·난이도·F1 세트 진행). 배틀 자체 상태가 아니라
+ * 런 진행 정보라 별도로 주입한다. 없으면(단발 배틀) 런 HUD 를 생략한다.
+ */
+export interface RunHudContext {
+  readonly battleNumber: number;
+  readonly totalBattles: number;
+  readonly tier: number;
+  readonly setTag: SetTag | null;
+  readonly setCount: number;
+  readonly setCompleted: boolean;
+  readonly enhanceTotal: number;
+}
 
 /** 아레나 중심이 화면에서 놓이는 y 좌표. 위쪽 여백은 HUD 가 차지한다. */
 const ARENA_CENTER_SCREEN_Y = 336;
@@ -20,7 +35,12 @@ const HUD_PANEL_HEIGHT = 62;
 const HUD_MARGIN = 18;
 
 export interface Renderer {
-  draw: (state: BattleState, effects: EffectBuffer, renderDeltaSeconds: number) => void;
+  draw: (
+    state: BattleState,
+    effects: EffectBuffer,
+    renderDeltaSeconds: number,
+    runHud?: RunHudContext,
+  ) => void;
 }
 
 export function createRenderer(canvas: HTMLCanvasElement): Renderer {
@@ -37,7 +57,12 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
     return ARENA_CENTER_SCREEN_Y + worldY;
   }
 
-  function draw(state: BattleState, effects: EffectBuffer, renderDeltaSeconds: number): void {
+  function draw(
+    state: BattleState,
+    effects: EffectBuffer,
+    renderDeltaSeconds: number,
+    runHud?: RunHudContext,
+  ): void {
     renderClockSeconds += renderDeltaSeconds;
     advanceEffects(effects, renderDeltaSeconds);
 
@@ -62,10 +87,53 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
 
     context.setTransform(1, 0, 0, 1, 0, 0);
     drawHud(context, canvas, state);
+    if (runHud) drawRunHud(context, canvas, runHud);
     drawPhaseOverlay(context, canvas, state);
   }
 
   return { draw };
+}
+
+// ─────────────────────────────────────────────────────────────
+// 런 HUD — 판 카운터 N/12 · 난이도 구간 · F1 세트 진행 (§12-6 / §2-5)
+// ─────────────────────────────────────────────────────────────
+
+function drawRunHud(
+  context: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
+  runHud: RunHudContext,
+): void {
+  context.textAlign = 'center';
+  context.textBaseline = 'top';
+
+  // 판 카운터 N/12 — 영상 컷 3 몽타주의 뼈대(§12-6). TIME 아래 중앙에 크게.
+  context.fillStyle = HUD_COLORS.overlayText;
+  context.font = '800 22px "Segoe UI", "Malgun Gothic", sans-serif';
+  context.fillText(`${runHud.battleNumber} / ${runHud.totalBattles}`, canvas.width / 2, HUD_MARGIN + 52);
+
+  context.fillStyle = HUD_COLORS.label;
+  context.font = '600 11px "Segoe UI", "Malgun Gothic", sans-serif';
+  context.fillText(`ROUND · 난이도 구간 ${runHud.tier}`, canvas.width / 2, HUD_MARGIN + 80);
+
+  // F1 세트 진행 — 플레이어(좌측 패널 아래). 카드 선택 결과가 배틀에서 어떤 세트인지 판독.
+  const labelX = HUD_MARGIN + 10;
+  const labelY = HUD_MARGIN + HUD_PANEL_HEIGHT + 8;
+  context.textAlign = 'left';
+  if (runHud.setTag) {
+    context.fillStyle = SET_COLORS[runHud.setTag];
+    context.font = '700 13px "Segoe UI", "Malgun Gothic", sans-serif';
+    const completeMark = runHud.setCompleted ? ' ★완성' : '';
+    context.fillText(`${runHud.setTag} ${runHud.setCount}/3${completeMark}`, labelX, labelY);
+  } else {
+    context.fillStyle = HUD_COLORS.label;
+    context.font = '600 13px "Segoe UI", "Malgun Gothic", sans-serif';
+    context.fillText('무소속', labelX, labelY);
+  }
+  if (runHud.enhanceTotal > 0) {
+    context.fillStyle = '#ffd166';
+    context.font = '600 13px "Segoe UI", "Malgun Gothic", sans-serif';
+    context.fillText(`강화 +${runHud.enhanceTotal}`, labelX + 96, labelY);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -262,6 +330,11 @@ function drawStatusPanel(
   context.textAlign = alignRight ? 'left' : 'right';
   const spinTextX = alignRight ? panelX + 10 : panelX + HUD_PANEL_WIDTH - 10;
   context.fillText(`SPIN ${Math.ceil(beyblade.spin)}`, spinTextX, panelY + 10);
+
+  // 링아웃 카운터(F3) — 패널 상단 중앙. 링아웃이 페널티가 되어 한 판에 여러 번 누적된다(§2-1b).
+  context.textAlign = 'center';
+  context.fillStyle = beyblade.ringOutCount > 0 ? '#ff9a3c' : HUD_COLORS.label;
+  context.fillText(`링아웃 ${beyblade.ringOutCount}`, panelX + HUD_PANEL_WIDTH / 2, panelY + 10);
 
   // 회전력 게이지 (= HP)
   const barX = panelX + 10;
