@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "smoke": "vite build --ssr tools/headlessBattle.ts --outDir dist-tools --logLevel warn && node dist-tools/headlessBattle.js"
+    "smoke": "vite build --ssr tools/headlessBattle.ts --outDir dist-tools --logLevel warn && node dist-tools/headlessBattle.js",
+    "smoke:run": "vite build --ssr tools/runFlow.ts --outDir dist-tools --logLevel warn && node dist-tools/runFlow.js"
   },
   "devDependencies": {
     "typescript": "^7.0.2",
