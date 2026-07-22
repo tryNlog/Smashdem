@@ -341,3 +341,53 @@ export const BOT_BURST_DISTANCE = 120;
 
 /** 위 거리 안에서 결정 시점마다 버스트를 쓸 확률. */
 export const BOT_BURST_PROBABILITY = 0.35;
+
+// ─────────────────────────────────────────────────────────────
+// 12판 런 구조 (§1-2 / §12-3) — 2026-07-22 S2 런 구현
+//
+// 런은 시뮬레이션 바깥의 메타 진행이지만, 드랍 무작위·배틀 시드가 전부 시드 PRNG 로만
+// 흐르도록(결정론·S3 전제) run.ts 를 순수하게 유지한다. 아래 수치는 그 구조 상수다.
+// ─────────────────────────────────────────────────────────────
+
+/** 런 한 회의 총 판 수(고정 상한, §1-2). 12판째 승리 시 런 완주. */
+export const RUN_TOTAL_BATTLES = 12;
+
+/** 난이도 구간당 판 수. 4구간 × 3판 = 12판(§12-3 계단형). */
+export const RUN_BATTLES_PER_TIER = 3;
+
+// ─────────────────────────────────────────────────────────────
+// 난이도 4구간 봇 프리셋 (N6 — placeholder)
+//
+// ★★★ game-ai-engineer 인계 지점 (§12-3). ★★★
+//   현재는 기존 BOT_* 상수(=1구간)에서 구간이 오를수록 조준 오차↓ · 스로틀↑ · 버스트 적극으로
+//   단순 강도 조절만 한 placeholder 다. 실제 계단 곡선(T12·T13 검증)은 game-ai-engineer 가
+//   이 표만 교체해 채운다 — 봇 로직(bot.ts) 은 이 표를 파라미터로 받으므로 신규 코드 없이 교체 가능하다.
+//   1구간(1~3판)은 반드시 이길 수 있어야 하므로(§12-3, M11) 기존 약한 봇 값을 그대로 둔다 — 이 행은 유지할 것.
+// ─────────────────────────────────────────────────────────────
+
+/** 봇 난이도 파라미터 묶음. bot.ts 의 BotTuning 과 같은 형태(구간 프리셋의 데이터 소스). */
+export interface BotTierTuning {
+  readonly decisionIntervalSeconds: number;
+  readonly aimErrorRadians: number;
+  readonly throttle: number;
+  readonly burstDistance: number;
+  readonly burstProbability: number;
+}
+
+/** 구간 1~4 프리셋. 인덱스 0 = 1구간. */
+export const BOT_TIER_TUNINGS: readonly BotTierTuning[] = [
+  // 1구간 (1~3판) — S0 약한 봇. 승리 보장 구간(§12-3, M11). 기존 상수와 동일값 유지.
+  {
+    decisionIntervalSeconds: BOT_DECISION_INTERVAL_SECONDS,
+    aimErrorRadians: BOT_AIM_ERROR_RADIANS,
+    throttle: BOT_THROTTLE,
+    burstDistance: BOT_BURST_DISTANCE,
+    burstProbability: BOT_BURST_PROBABILITY,
+  },
+  // 2구간 (4~6판) — 중. placeholder.
+  { decisionIntervalSeconds: 0.24, aimErrorRadians: 0.4, throttle: 0.88, burstDistance: 140, burstProbability: 0.5 },
+  // 3구간 (7~9판) — 상. placeholder.
+  { decisionIntervalSeconds: 0.2, aimErrorRadians: 0.26, throttle: 0.94, burstDistance: 170, burstProbability: 0.68 },
+  // 4구간 (10~12판) — 최상(클라이맥스, 영상 컷 4). placeholder.
+  { decisionIntervalSeconds: 0.16, aimErrorRadians: 0.15, throttle: 1, burstDistance: 200, burstProbability: 0.85 },
+];
