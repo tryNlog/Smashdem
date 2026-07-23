@@ -76,9 +76,8 @@ const FRAME_SECONDS = 1 / 60;
 const HITSTOP_STRONG_FRAMES = 2;
 const HITSTOP_RINGOUT_FRAMES = 3;
 const HITSTOP_FINISH_FRAMES = 4;
-/** 파티클 상한 — 초과분은 오래된 것부터 버린다(60fps 방어). */
+/** 파티클 상한 — 초과분은 오래된 것부터 버린다(60fps 방어). 화면 흔들림 진폭 상한은 renderer.ts 참조. */
 const MAX_SPARKS = 140;
-/** 화면 흔들림 진폭 상한 계수(renderer 에서 shakeStrength × 이 값 × 감쇠). */
 
 export function createEffectBuffer(): EffectBuffer {
   return {
