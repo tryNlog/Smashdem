@@ -8,7 +8,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "smoke": "vite build --ssr tools/headlessBattle.ts --outDir dist-tools --logLevel warn && node dist-tools/headlessBattle.js",
-    "smoke:run": "vite build --ssr tools/runFlow.ts --outDir dist-tools --logLevel warn && node dist-tools/runFlow.js"
+    "smoke:run": "vite build --ssr tools/runFlow.ts --outDir dist-tools --logLevel warn && node dist-tools/runFlow.js",
+    "smoke:tiers": "vite build --ssr tools/botTiers.ts --outDir dist-tools --logLevel warn && node dist-tools/botTiers.js"
   },
   "devDependencies": {
     "typescript": "^7.0.2",

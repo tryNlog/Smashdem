@@ -14,7 +14,7 @@ import { nextRandomUnit, type RandomState } from '../engine/random';
 import * as Balance from './balance';
 import type { BeybladeStats } from './types';
 import type { Build, BuildProfile, Part, PartSlot, SetTag } from './parts';
-import { buildProfile, completedSet, STARTER_BUILD } from './parts';
+import { ARCHETYPE_BUILDS, buildProfile, completedSet, STARTER_BUILD } from './parts';
 
 /** 슬롯 하나의 장착 상태 = 파츠 1개 + 강화 레벨(0~상한). */
 export interface SlotState {
@@ -96,6 +96,24 @@ export function tierForBattle(battleNumber: number): number {
   const tier = Math.floor((battleNumber - 1) / Balance.RUN_BATTLES_PER_TIER) + 1;
   const maxTier = Math.ceil(Balance.RUN_TOTAL_BATTLES / Balance.RUN_BATTLES_PER_TIER);
   return Math.max(1, Math.min(maxTier, tier));
+}
+
+/**
+ * 구간(1~4) → 봇이 장착할 빌드(§12-3 하드 훅 3). game-ai-engineer 소관.
+ *
+ * ★ 현재 결정: 전 구간 시작 빌드 고정 = **빌드 스왑 레버 미사용.**
+ *   빌드 스왑을 측정했다가 반려했다(ai-log "S2 봇 4구간" 기록):
+ *     - tier3=어택 아키타입 → 기준(시작 빌드) 플레이어 승률 1.3%,
+ *     - tier4=링브레이커 → 71.3%. 빌드 파워 격차가 실력 격차를 압도해 계단이 non-monotone 이 됐다.
+ *   또한 디렉터 N6 는 "기존 5개 상수 조합만, 파라미터 커브로만"으로 난이도를 올리라 했고(§12-3),
+ *   빌드 스왑은 난이도 설계 원칙("스탯 뻥튀기 금지")의 비판도 부른다.
+ *   → 난이도 4구간은 **봇 스킬 파라미터(BOT_TIER_TUNINGS)만으로** 만든다. 이 함수는 훅만 남긴다.
+ *   후반 구간 봇 빌드 부여는 본선 에이전트 설계서에서 재검토 대상(플레이어 빌드 성장과의 균형 측정 필요).
+ */
+export function botBuildForTier(tier: number): Build {
+  void tier;
+  void ARCHETYPE_BUILDS; // 반려된 스왑 경로의 후보. 현재 미사용(위 주석 참조).
+  return STARTER_BUILD;
 }
 
 /** 이번 판에 쓸 배틀 시드. 런 난수를 전진시켜 뽑는다(같은 런 시드 → 같은 판 시퀀스). */
