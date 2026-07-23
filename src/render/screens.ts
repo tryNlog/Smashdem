@@ -273,6 +273,11 @@ function drawRewardCard(
     cursorY += 22;
   }
 
+  // 장착 시 팽이 외형 미리보기 — "무엇이 어떻게 세지는가"를 그림으로(PT-1-A·D).
+  const summary = buildSetSummary(session.run.build);
+  const willComplete = (preview?.completes ?? false) || (summary.completed && summary.tag === tag);
+  drawCardBeybladePreview(context, button, tag, willComplete);
+
   // 특성 설명
   if (card.part.trait) {
     context.fillStyle = '#c9d2ea';
@@ -285,6 +290,70 @@ function drawRewardCard(
   context.fillStyle = '#8792ad';
   context.font = '400 12px "Segoe UI", "Malgun Gothic", sans-serif';
   wrapText(context, card.part.blurb, padX, button.y + button.h - 44, button.w - 32, 15);
+}
+
+/**
+ * 카드 하단의 팽이 외형 미리보기. 세트 색으로 물든 날 + 완성 시 오라 링을 그려
+ * "이 파츠를 끼면 내 팽이가 이렇게 보인다"를 선택 전에 노출한다(F1→F2 연결).
+ */
+function drawCardBeybladePreview(
+  context: CanvasRenderingContext2D,
+  button: UiButton,
+  tag: SetTag | null,
+  willComplete: boolean,
+): void {
+  // 스탯 텍스트가 왼쪽 정렬이라 우측 중단 여백에 배치한다(하단 블러브·특성과 겹치지 않게).
+  const centerX = button.x + button.w - 42;
+  const centerY = button.y + 168;
+  const radius = 20;
+  const rim = setColor(tag);
+
+  context.save();
+  context.translate(centerX, centerY);
+
+  if (willComplete) {
+    // 완성 오라 링(F2 예고).
+    context.globalAlpha = 0.6;
+    context.beginPath();
+    context.arc(0, 0, radius + 6, 0, Math.PI * 2);
+    context.strokeStyle = rim;
+    context.lineWidth = 2;
+    context.stroke();
+    context.globalAlpha = 1;
+  }
+
+  // 5날 별 실루엣.
+  const blades = 5;
+  context.beginPath();
+  for (let vertex = 0; vertex < blades * 2; vertex += 1) {
+    const isOuter = vertex % 2 === 0;
+    const r = isOuter ? radius : radius * 0.56;
+    const angle = (Math.PI * vertex) / blades - Math.PI / 2;
+    const px = Math.cos(angle) * r;
+    const py = Math.sin(angle) * r;
+    if (vertex === 0) context.moveTo(px, py);
+    else context.lineTo(px, py);
+  }
+  context.closePath();
+  context.fillStyle = tag ? 'rgba(30, 38, 58, 1)' : 'rgba(40, 46, 62, 1)';
+  context.fill();
+  context.strokeStyle = rim;
+  context.lineWidth = willComplete ? 3 : 2;
+  context.stroke();
+
+  // 중심축.
+  context.beginPath();
+  context.arc(0, 0, radius * 0.28, 0, Math.PI * 2);
+  context.fillStyle = rim;
+  context.fill();
+  context.restore();
+
+  context.textAlign = 'center';
+  context.textBaseline = 'top';
+  context.fillStyle = willComplete ? rim : '#8792ad';
+  context.font = '600 11px "Segoe UI", "Malgun Gothic", sans-serif';
+  context.fillText(willComplete ? '장착 → 세트 완성 외형' : '장착 시 외형', centerX, centerY + radius + 8);
+  context.textAlign = 'left';
 }
 
 interface StatDeltaLine {
