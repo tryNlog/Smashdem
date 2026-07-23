@@ -376,18 +376,12 @@ export interface BotTierTuning {
 
 /** 구간 1~4 프리셋. 인덱스 0 = 1구간. */
 export const BOT_TIER_TUNINGS: readonly BotTierTuning[] = [
-  // 1구간 (1~3판) — S0 약한 봇. 승리 보장 구간(§12-3, M11). 기존 상수와 동일값 유지.
-  {
-    decisionIntervalSeconds: BOT_DECISION_INTERVAL_SECONDS,
-    aimErrorRadians: BOT_AIM_ERROR_RADIANS,
-    throttle: BOT_THROTTLE,
-    burstDistance: BOT_BURST_DISTANCE,
-    burstProbability: BOT_BURST_PROBABILITY,
-  },
-  // 2구간 (4~6판) — 중. placeholder.
-  { decisionIntervalSeconds: 0.24, aimErrorRadians: 0.4, throttle: 0.88, burstDistance: 140, burstProbability: 0.5 },
-  // 3구간 (7~9판) — 상. placeholder.
-  { decisionIntervalSeconds: 0.2, aimErrorRadians: 0.26, throttle: 0.94, burstDistance: 170, burstProbability: 0.68 },
-  // 4구간 (10~12판) — 최상(클라이맥스, 영상 컷 4). placeholder.
-  { decisionIntervalSeconds: 0.16, aimErrorRadians: 0.15, throttle: 1, burstDistance: 200, burstProbability: 0.85 },
+  // 1구간 (1~3판) — S0 약한 봇. 승리 보장 구간(§12-3, M11). 기존 상수보다 더 무디게(조준 크게·판단 느리게).
+  { decisionIntervalSeconds: 0.32, aimErrorRadians: 0.62, throttle: 0.78, burstDistance: 110, burstProbability: 0.28 },
+  // 2구간 (4~6판) — 중. 조준이 눈에 띄게 정확해지고 판단이 빨라진다.
+  { decisionIntervalSeconds: 0.16, aimErrorRadians: 0.23, throttle: 0.92, burstDistance: 160, burstProbability: 0.65 },
+  // 3구간 (7~9판) — 상. 기준 플레이어와 실력 근접(조준 오차가 플레이어 근처).
+  { decisionIntervalSeconds: 0.14, aimErrorRadians: 0.2, throttle: 0.97, burstDistance: 180, burstProbability: 0.75 },
+  // 4구간 (10~12판) — 최상(클라이맥스, 영상 컷 4). 조준이 플레이어보다 정밀 + 버스트 적극.
+  { decisionIntervalSeconds: 0.12, aimErrorRadians: 0.15, throttle: 1, burstDistance: 210, burstProbability: 0.88 },
 ];
