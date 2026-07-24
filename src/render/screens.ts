@@ -11,7 +11,8 @@
 import type { Session } from '../app/session';
 import type { RewardCard } from '../game/rewards';
 import { setPreviewForCard } from '../game/rewards';
-import { buildSetSummary, enhanceTotal } from '../game/run';
+import { buildSetSummary, enhanceTotal, setCount } from '../game/run';
+import type { RunBuild } from '../game/run';
 import type { SetTag } from '../game/parts';
 import type { BeybladeStats } from '../game/types';
 import { HANGAR_SLOT_COUNT } from '../app/hangar';
@@ -165,6 +166,8 @@ export function drawSessionOverlay(context: CanvasRenderingContext2D, canvas: HT
       drawPvpScreen(context, canvas, session);
       break;
     case 'battle':
+      // 배틀 중에도 세트 진행을 볼 수 있게 좌측(플레이어 상태 패널 아래, 아레나 왼쪽 빈 공간)에 얹는다.
+      drawBuildOverviewPanel(context, 18, 86, session.run.build);
       drawBattlePvpButton(context, canvas);
       break;
   }
@@ -173,6 +176,123 @@ export function drawSessionOverlay(context: CanvasRenderingContext2D, canvas: HT
 function drawDimBackground(context: CanvasRenderingContext2D, canvas: HTMLCanvasElement): void {
   context.fillStyle = 'rgba(6, 8, 14, 0.82)';
   context.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+// ── 인벤토리형 빌드 개요 패널 ────────────────────────────────
+// PM 재플레이 피드백: 세트 진행이 텍스트 한 줄로는 안 보인다 → 장착 3슬롯 + 세트 3축 진행도를
+// 칩·pip 게이지로 한눈에. 배틀 HUD 좌측과 3택1 좌상단에 같은 뷰를 얹는다(신규 전용 화면 없음, §4-R4).
+// 순수 렌더 — 런 상태(RunBuild)만 읽는다(시뮬·결정론 불변). 세트 진행 계산은 run.ts setCount 재사용.
+// 정밀 연출(애니메이션·타격 가시화)은 technical-artist 몫. 여기서는 판독 가능한 레이아웃까지.
+
+const OVERVIEW_SET_TAGS: readonly SetTag[] = ['STRIKE', 'GUARD', 'BREAK'];
+
+/** 인벤토리 패널의 세로 크기(픽셀). 배치 시 겹침 계산에 쓰라고 상수로 노출한다. */
+export const BUILD_OVERVIEW_PANEL_HEIGHT = 8 + 18 + 3 * 16 + 8 + 3 * 16 + 8; // = 138
+
+/**
+ * 빌드 개요 패널을 (x, y) 좌상단 기준으로 그린다. 폭 214px, 높이 BUILD_OVERVIEW_PANEL_HEIGHT.
+ *  - 상단: 장착 3슬롯(레이어/디스크/드라이버) — 세트색 칩 + 파츠명 + 강화 +N.
+ *  - 하단: 세트 3축 진행도 — 3칸 pip 게이지 + n/3(완성이면 ★완성, 세트색 강조).
+ */
+export function drawBuildOverviewPanel(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  build: RunBuild,
+): void {
+  const panelWidth = 214;
+  const padX = 12;
+  const rowHeight = 16;
+  const slots = [build.layer, build.disk, build.driver] as const;
+  const totalEnhance = enhanceTotal(build);
+  const height = BUILD_OVERVIEW_PANEL_HEIGHT;
+
+  // 배경 + 테두리
+  context.fillStyle = 'rgba(14, 18, 30, 0.86)';
+  context.fillRect(x, y, panelWidth, height);
+  context.strokeStyle = 'rgba(90, 110, 150, 0.5)';
+  context.lineWidth = 1;
+  context.strokeRect(x + 0.5, y + 0.5, panelWidth - 1, height - 1);
+
+  let cursorY = y + 8;
+
+  // 헤더 — "내 팽이" + 강화 총합
+  context.textBaseline = 'top';
+  context.textAlign = 'left';
+  context.font = '700 12px "Segoe UI", "Malgun Gothic", sans-serif';
+  context.fillStyle = HUD_COLORS.label;
+  context.fillText('내 팽이', x + padX, cursorY);
+  if (totalEnhance > 0) {
+    context.textAlign = 'right';
+    context.fillStyle = '#ffd166';
+    context.fillText(`강화 +${totalEnhance}`, x + panelWidth - padX, cursorY);
+  }
+  cursorY += 18;
+
+  // 슬롯 3행 — [세트색 사각칩] 파츠명 … [+N]
+  for (const slot of slots) {
+    const tag = slot.part.set ?? null;
+    context.fillStyle = tag ? SET_COLORS[tag] : '#6b7488';
+    context.fillRect(x + padX, cursorY + 3, 9, 9);
+
+    context.textAlign = 'left';
+    context.fillStyle = HUD_COLORS.overlayText;
+    context.font = '600 11px "Segoe UI", "Malgun Gothic", sans-serif';
+    context.fillText(slot.part.name, x + padX + 16, cursorY + 1);
+
+    if (slot.level > 0) {
+      context.textAlign = 'right';
+      context.fillStyle = '#ffd166';
+      context.font = '700 11px "Segoe UI", "Malgun Gothic", sans-serif';
+      context.fillText(`+${slot.level}`, x + panelWidth - padX, cursorY + 1);
+    }
+    cursorY += rowHeight;
+  }
+
+  // 구분선
+  context.strokeStyle = 'rgba(90, 110, 150, 0.3)';
+  context.lineWidth = 1;
+  context.beginPath();
+  context.moveTo(x + padX, cursorY + 3);
+  context.lineTo(x + panelWidth - padX, cursorY + 3);
+  context.stroke();
+  cursorY += 8;
+
+  // 세트 3축 — 이름 + 3칸 pip 게이지 + n/3(완성 ★)
+  for (const tag of OVERVIEW_SET_TAGS) {
+    const count = setCount(build, tag);
+    const done = count >= 3;
+    const color = SET_COLORS[tag];
+
+    context.textAlign = 'left';
+    context.font = '700 11px "Segoe UI", "Malgun Gothic", sans-serif';
+    context.fillStyle = done ? color : 'rgba(170, 179, 204, 0.9)';
+    context.fillText(tag, x + padX, cursorY + 2);
+
+    const pipStartX = x + padX + 66;
+    for (let index = 0; index < 3; index += 1) {
+      const pipX = pipStartX + index * 15;
+      const pipY = cursorY + 8;
+      context.beginPath();
+      context.arc(pipX, pipY, 4.5, 0, Math.PI * 2);
+      if (index < count) {
+        context.fillStyle = color;
+        context.fill();
+      } else {
+        context.strokeStyle = 'rgba(120, 130, 160, 0.6)';
+        context.lineWidth = 1;
+        context.stroke();
+      }
+    }
+
+    context.textAlign = 'right';
+    context.font = '700 11px "Segoe UI", "Malgun Gothic", sans-serif';
+    context.fillStyle = done ? color : HUD_COLORS.label;
+    context.fillText(done ? '★완성' : `${count}/3`, x + panelWidth - padX, cursorY + 2);
+    cursorY += rowHeight;
+  }
+
+  context.textAlign = 'left';
 }
 
 function drawButton(
@@ -208,6 +328,10 @@ function drawRewardScreen(context: CanvasRenderingContext2D, canvas: HTMLCanvasE
   context.fillStyle = HUD_COLORS.overlaySubText;
   context.font = '500 17px "Segoe UI", "Malgun Gothic", sans-serif';
   context.fillText('카드를 클릭하거나 1 / 2 / 3 키로 선택 · R 키로 리롤', canvas.width / 2, 116);
+
+  // 좌상단 빌드 개요 — "이 카드를 고르면 어느 세트에 가까워지나"를 현재 진행도와 대조하며 판단.
+  // 카드 색/글리프(세트 축)와 같은 SET_COLORS 를 써서 카드와 개요가 색으로 연결된다(ce682be).
+  drawBuildOverviewPanel(context, 20, 30, session.run.build);
 
   const buttons = rewardButtons(canvas);
   session.rewards.forEach((card, index) => {

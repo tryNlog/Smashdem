@@ -217,25 +217,8 @@ function drawRunHud(
   context.font = '600 11px "Segoe UI", "Malgun Gothic", sans-serif';
   context.fillText(`ROUND · 난이도 구간 ${runHud.tier}`, canvas.width / 2, HUD_MARGIN + 80);
 
-  // F1 세트 진행 — 플레이어(좌측 패널 아래). 카드 선택 결과가 배틀에서 어떤 세트인지 판독.
-  const labelX = HUD_MARGIN + 10;
-  const labelY = HUD_MARGIN + HUD_PANEL_HEIGHT + 8;
-  context.textAlign = 'left';
-  if (runHud.setTag) {
-    context.fillStyle = SET_COLORS[runHud.setTag];
-    context.font = '700 13px "Segoe UI", "Malgun Gothic", sans-serif';
-    const completeMark = runHud.setCompleted ? ' ★완성' : '';
-    context.fillText(`${runHud.setTag} ${runHud.setCount}/3${completeMark}`, labelX, labelY);
-  } else {
-    context.fillStyle = HUD_COLORS.label;
-    context.font = '600 13px "Segoe UI", "Malgun Gothic", sans-serif';
-    context.fillText('무소속', labelX, labelY);
-  }
-  if (runHud.enhanceTotal > 0) {
-    context.fillStyle = '#ffd166';
-    context.font = '600 13px "Segoe UI", "Malgun Gothic", sans-serif';
-    context.fillText(`강화 +${runHud.enhanceTotal}`, labelX + 96, labelY);
-  }
+  // 세트 진행·장착 파츠·강화는 좌측 인벤토리 패널(screens.ts drawBuildOverviewPanel)이 그린다.
+  // 여기(renderer)의 한 줄 텍스트를 그 패널로 대체했다 — 중복 방지(§17 재판정 후 PM 가시화 요청).
 }
 
 // ─────────────────────────────────────────────────────────────
