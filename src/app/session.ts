@@ -14,7 +14,7 @@ import { createBattleState, definitionFromBuild } from '../game/battleState';
 import type { BattleState, InputCommand } from '../game/types';
 import type { RewardCard } from '../game/rewards';
 import { applyReward, generateRewards } from '../game/rewards';
-import type { RunState } from '../game/run';
+import type { BotBuildAssignment, RunBuild, RunState } from '../game/run';
 import {
   advanceAfterReward,
   createRun,
@@ -69,10 +69,21 @@ export interface Session {
 }
 
 /**
+ * 세션 생성 옵션.
+ * @property botBuildFor 봇 빌드 부여 해석기(미러 봇 후보 측정·배선용). 생략 시 전 구간 시작 빌드
+ *   고정(현행 동작·바이트 동일). 주어지면 매 판 (플레이어 런 빌드, 구간) → 봇 빌드+옵션.
+ *   결정론 규율: 해석기는 런 빌드만 읽는 순수 함수여야 한다(run.mirrorBotBuild 가 그 예).
+ */
+export interface SessionOptions {
+  readonly botBuildFor?: (playerBuild: RunBuild, tier: number) => BotBuildAssignment;
+}
+
+/**
  * @param seedSource 런/배틀 시드의 출처(Date.now 기반). 시뮬 바깥에서 주입한다 — 시뮬 안에서
  *   Date.now 를 부르지 않기 위함(결정론 규율). 같은 시드면 같은 런 시퀀스가 재현된다.
+ * @param options 봇 빌드 해석기 등. 생략 시 현행(시작 빌드 봇) 동작 불변.
  */
-export function createSession(seedSource: () => number): Session {
+export function createSession(seedSource: () => number, options: SessionOptions = {}): Session {
   let screen: SessionScreen = 'battle';
   let run = createRun(createRandomState(seedSource()));
   let battle = createBattleForCurrentBattle(run);
@@ -88,9 +99,12 @@ export function createSession(seedSource: () => number): Session {
       levels: runBuildLevels(forRun.build),
       applySetBonus: true,
     });
-    // 봇 정의 — 지금은 시작 빌드 고정. 티어별 강도는 봇 파라미터(botTuningForTier)로만 준다.
-    // ★ game-ai-engineer 인계: 티어별로 봇 "빌드"를 바꾸고 싶으면 이 줄을 tier 로 분기한다.
-    const botDefinition = definitionFromBuild('상대', STARTER_BUILD);
+    // 봇 정의 — 기본은 시작 빌드 고정(현행). options.botBuildFor 가 주어지면 그 해석기가 준
+    // 빌드+옵션(미러 봇 등)을 쓴다. 티어별 강도는 봇 파라미터(botTuningForTier)로도 함께 준다.
+    const botAssignment: BotBuildAssignment = options.botBuildFor
+      ? options.botBuildFor(forRun.build, tierForBattle(forRun.battleNumber))
+      : { build: STARTER_BUILD, options: {} };
+    const botDefinition = definitionFromBuild('상대', botAssignment.build, botAssignment.options);
     const seed = nextBattleSeed(forRun);
     return createBattleState([playerDefinition, botDefinition], seed);
   }
