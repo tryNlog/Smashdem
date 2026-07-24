@@ -19,7 +19,7 @@ import { botInput, botTuningForTier, type BotTuning } from '../src/game/bot';
 import { createBattleState, definitionFromBuild } from '../src/game/battleState';
 import { botBuildForTier, runBuildLevels, runBuildToBuild, type RunBuild } from '../src/game/run';
 import { applyReward, type RewardCard } from '../src/game/rewards';
-import { buildProfile, STARTER_BUILD, type Build } from '../src/game/parts';
+import { buildFromIds, buildProfile, STARTER_BUILD, type Build, type BuildOptions } from '../src/game/parts';
 import { stepBattle } from '../src/game/simulation';
 import type { InputCommand } from '../src/game/types';
 import { createSession } from '../src/app/session';
@@ -145,6 +145,71 @@ function runDuelBotFirst(
 }
 
 // ─────────────────────────────────────────────────────────────
+// T-RUN2 파리티 프로브 (§17-F-3) — 완성+강화 플레이어 vs 4구간 봇
+//
+// 문제(§18-2): 완성 STRIKE3/3 +3(atk90, dmg×1.25)이 4구간 봇(STARTER)마저 100% 압도해 완주 난이도가 붕괴.
+// 물음: 봇 스킬 파라미터만으로 이 격차를 메워 파리티(~약우세)가 물리적으로 가능한가?
+// 봇을 이론적 최대 스킬(조준오차 0·매 프레임 판단·상시 버스트)까지 올려 상한을 잰다.
+// ─────────────────────────────────────────────────────────────
+
+/** 완성 STRIKE 3/3 빌드(어택축, 세트 드라이버 포함). §18 SET_BUILDS.STRIKE 와 동일. */
+const STRIKE_BUILD: Build = buildFromIds('L02', 'D02', 'R02');
+
+/** 런 컨텍스트 옵션(세트 ON·강화 레벨). systems-designer T-RUN 과 정합(context:'run'). */
+function runOptions(level: number): BuildOptions {
+  return { applySetBonus: true, context: 'run', levels: { layer: level, disk: level, driver: level } };
+}
+
+/** 숙련 플레이어(조준오차 0.18) — headlessBattle T-RUN 의 REFERENCE_PLAYER 와 정합. */
+const SKILLED_PLAYER_FOR_RUN: BotTuning = {
+  decisionIntervalSeconds: 0.1,
+  aimErrorRadians: 0.18,
+  throttle: 1,
+  burstDistance: 160,
+  burstProbability: 0.6,
+};
+
+/** 이론적 최대 스킬 봇 — 스킬 축의 물리적 천장(조준 완벽·즉각 판단·최대 버스트). */
+const MAX_SKILL_BOT: BotTuning = {
+  decisionIntervalSeconds: Balance.FIXED_DELTA_SECONDS,
+  aimErrorRadians: 0,
+  throttle: 1,
+  burstDistance: 400,
+  burstProbability: 1,
+};
+
+/** 완성+강화 플레이어(index 0) vs 봇(주어진 빌드·옵션·튜닝) 승률. 좌우 교대 80판. */
+function measureRunParity(
+  playerLevel: number,
+  playerTuning: BotTuning,
+  botTuning: BotTuning,
+  botBuild: Build = STARTER_BUILD,
+  botOptions: BuildOptions | undefined = undefined,
+): { playerWinRate: number; averageSeconds: number } {
+  const playerDef = definitionFromBuild('P', STRIKE_BUILD, runOptions(playerLevel));
+  const botDef = definitionFromBuild('B', botBuild, botOptions);
+  let playerWins = 0;
+  let totalSeconds = 0;
+  let battles = 0;
+  for (const seed of SEEDS) {
+    for (const flip of [0, 1]) {
+      const state = createBattleState([playerDef, botDef], seed + flip * 104729);
+      const inputs: InputCommand[] = [];
+      for (let step = 0; step < MAXIMUM_STEPS; step += 1) {
+        inputs[PLAYER_INDEX] = botInput(state, PLAYER_INDEX, playerTuning);
+        inputs[BOT_INDEX] = botInput(state, BOT_INDEX, botTuning);
+        stepBattle(state, inputs, Balance.FIXED_DELTA_SECONDS);
+        if (state.phase === 'finished') break;
+      }
+      if (state.winnerIndex === PLAYER_INDEX) playerWins += 1;
+      totalSeconds += state.battleElapsedSeconds;
+      battles += 1;
+    }
+  }
+  return { playerWinRate: playerWins / battles, averageSeconds: totalSeconds / battles };
+}
+
+// ─────────────────────────────────────────────────────────────
 // T13 — 세션 전체 구동 완주율
 // ─────────────────────────────────────────────────────────────
 
@@ -256,6 +321,19 @@ function main(): void {
   }
   console.log('  ※ 잣대별로 곡선 높이는 다르나(봇 강도는 상대적) 단조성이 목표. 완벽 잣대의 1~2구간 역전은');
   console.log('    상시 버스트 성향의 자멸 변동(80판 중 1~2판)이라 난이도 역전이 아니다.');
+  console.log('');
+
+  console.log('--- ★ T-RUN2 파리티 프로브 (완성 STRIKE3/3+강화 vs 4구간 봇, §17-F-3) ---');
+  console.log('  목표: 플레이어 승률 파리티~약우세(대략 50~65%). 현재 4구간 봇 튜닝 + 스킬 천장(MAX)을 함께 잰다.');
+  for (const lv of [3, Balance.ENHANCE_LEVEL_CAP_RUN]) {
+    const cur = measureRunParity(lv, SKILLED_PLAYER_FOR_RUN, botTuningForTier(4));
+    const max = measureRunParity(lv, SKILLED_PLAYER_FOR_RUN, MAX_SKILL_BOT);
+    console.log(
+      `  STRIKE3/3 +${lv}  vs 4구간봇(현행) 플레이어승률 ${percent(cur.playerWinRate)} (판 ${cur.averageSeconds.toFixed(1)}s)  ` +
+        `| vs 스킬천장봇 ${percent(max.playerWinRate)}`,
+    );
+  }
+  console.log('  ※ 스킬천장봇도 플레이어를 못 막으면(승률≈100%) 스킬 축만으론 파리티 물리적 불가 → [UNSUPPORTED] 상신.');
   console.log('');
 
   console.log('--- T13 12판 완주율 (런 전체 구동, 40 시드) 목표 40~70% ---');
