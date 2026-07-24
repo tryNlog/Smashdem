@@ -280,6 +280,11 @@ export interface BuildOptions {
   readonly levels?: SlotLevels;
   /** 세트 3/3 완성 보너스를 적용할지. 게임 런타임/③단계 측정만 true. */
   readonly applySetBonus?: boolean;
+  /**
+   * 강화 상한 컨텍스트(§17-C). 'run'=파워 판타지 상한 / 'pvp'=대칭 보호 상한 / 생략=기본 상한(하위호환).
+   * 세트 보너스 값 자체는 컨텍스트로 바뀌지 않는다(SET4′ 매치업 검증만 컨텍스트 분기, §17-B).
+   */
+  readonly context?: 'run' | 'pvp';
 }
 
 /** 3슬롯 전부 같은 세트 태그면 그 태그, 아니면 null(세트 미완성). SET2 로 슬롯당 1종이라 이 검사로 충분. */
@@ -313,10 +318,19 @@ export function buildProfile(build: Build, options: BuildOptions = {}): BuildPro
   let knockbackImpulseMultiplier = NEUTRAL_TUNING.knockbackImpulseMultiplier;
   let burstRegenerationMultiplier = NEUTRAL_TUNING.burstRegenerationMultiplier;
   let burstImpulseMultiplier = NEUTRAL_TUNING.burstImpulseMultiplier;
+  let damageDealtMultiplier = NEUTRAL_TUNING.damageDealtMultiplier;
+
+  // 강화 상한은 컨텍스트로 고른다(§17-C): 런은 파워 판타지(높은 상한), PvP 는 대칭 보호(낮은 상한).
+  const levelCap =
+    options.context === 'pvp'
+      ? Balance.ENHANCE_LEVEL_CAP_PVP
+      : options.context === 'run'
+        ? Balance.ENHANCE_LEVEL_CAP_RUN
+        : Balance.ENHANCE_LEVEL_CAP;
 
   for (const { part, level } of entries) {
     // 강화 스케일 — 스탯 델타·넉백에만. 특성 배율(§3-3 "상수 1개 × 배율 1개")은 강화로 커지지 않는다.
-    const clampedLevel = Math.max(0, Math.min(Balance.ENHANCE_LEVEL_CAP, level));
+    const clampedLevel = Math.max(0, Math.min(levelCap, level));
     const scale = 1 + clampedLevel * Balance.ENHANCE_SCALE_PER_LEVEL;
 
     attack += (part.statDelta.attack ?? 0) * scale;
@@ -342,13 +356,15 @@ export function buildProfile(build: Build, options: BuildOptions = {}): BuildPro
     }
   }
 
-  // 세트 3/3 완성 보너스(SET4=약점 축 보전). 2/3 부분 보너스 없음(SET1).
+  // 세트 3/3 완성 보너스. 2/3 부분 보너스 없음(SET1). [07-24 §17-C] 세 세트가 각자 다른 뽕맛.
   if (options.applySetBonus) {
     switch (completedSet(build)) {
       case 'STRIKE':
-        stamina += Balance.SET_BONUS_STRIKE_STAMINA;
+        // 공격형(R-SET1): 타격 데미지 계수 증폭(SET3 규약, 신규 효과 아님). 스탯 가산 아님.
+        damageDealtMultiplier *= Balance.STRIKE_SET_DAMAGE_MULTIPLIER;
         break;
       case 'GUARD':
+        // 역전형: 넉백 저항(질량) 보전. 자연 감소 저항 강화는 L1(GUARD_SET_SPIN_DECAY_MULTIPLIER).
         weight += Balance.SET_BONUS_GUARD_WEIGHT;
         break;
       case 'BREAK':
@@ -371,6 +387,7 @@ export function buildProfile(build: Build, options: BuildOptions = {}): BuildPro
       knockbackImpulseMultiplier,
       burstRegenerationMultiplier,
       burstImpulseMultiplier,
+      damageDealtMultiplier,
     },
   };
 }

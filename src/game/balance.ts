@@ -284,25 +284,43 @@ export const LIP_PIERCE_MULTIPLIER = 0.5;
 // ─────────────────────────────────────────────────────────────
 
 /**
- * 세트 3/3 완성 시 붙는 스탯 가산 1항(SET4=약점 축 보전).
- *  - STRIKE(어택) 약점 = 지구전 → stamina 보전(자연 감소 저항)
- *  - GUARD(스태미나) 약점 = 링아웃에 밀림 → weight 보전(질량=넉백 저항)
- *  - BREAK(링브레이커) 약점 = 스핀아웃(낮은 sta) → stamina 보전
- * 값은 ③단계 실측(T11 55~70% / T14 40~60% / SET4 RB vs 스태미나 ≤70%)으로 확정 대상.
+ * 세트 3/3 완성 보너스.
+ *  - STRIKE(어택): [07-24 6차 §17-C R-SET1] sta+4(수비) **폐기** → **공격형**. 스탯 가산이 아니라
+ *    타격 데미지 계수 배율(아래 STRIKE_SET_DAMAGE_MULTIPLIER). PT-2-1 뽕맛 부재 대응.
+ *  - GUARD(스태미나): weight 보전(질량=넉백 저항). [07-24 §17-C] 역전형 재설계는 L1(여유) — 아래 참조.
+ *  - BREAK(링브레이커): stamina 보전(§15-E 확정 +5, PvP 컨텍스트 유효).
  */
-export const SET_BONUS_STRIKE_STAMINA = 4;
 export const SET_BONUS_GUARD_WEIGHT = 4;
 export const SET_BONUS_BREAK_STAMINA = 5;
 
 /**
+ * STRIKE 세트 완성(공격형) — 타격 시 가하는 충돌 데미지 계수에 곱하는 배율(SET3: 기존 계수 × 배율 1개).
+ * 런 컨텍스트에서 봇 압도(T-RUN1)의 뽕맛 절반(나머지 절반은 강화·가시화). §17-C / 17-F-1.
+ * ④단계 런 스윕으로 확정 대상 — T-RUN1 압도 하한 만족하는 값이되 T4(자력 링아웃 0)·PvP SET4′(≤75%) 회귀 안에서.
+ */
+export const STRIKE_SET_DAMAGE_MULTIPLIER = 1.35;
+
+/**
+ * GUARD 역전형(§17-C, L1) — 세트 완성 시 자연 감소 저항 배율(SPIN_DECAY 에 곱). <1 이면 덜 닳는다.
+ * 1.0 이면 미적용(현재 L0 에서는 weight 보전만, 역전형은 L1). L1 착수 시 <1 로 스윕.
+ */
+export const GUARD_SET_SPIN_DECAY_MULTIPLIER = 1.0;
+
+/**
  * N11 — 중복 강화 스케일. 파츠 level 1당 그 파츠의 스탯 델타·넉백에 더해지는 비율.
- * level 0(기본)~3(상한). level L 이면 델타에 (1 + L × 이 값) 을 곱한다.
- * 0.5 이면 +3 강화 시 파츠 기여가 2.5배. T14(세트 vs 순수 강화 40~60%)로 확정 대상.
+ * level L 이면 델타에 (1 + L × 이 값) 을 곱한다. 0.5 이면 +3 강화 시 파츠 기여가 2.5배.
  */
 export const ENHANCE_SCALE_PER_LEVEL = 0.5;
 
-/** 중복 강화 상한(R13). */
+/**
+ * 중복 강화 상한(R13). 컨텍스트 분리(§17-C·17-F-2):
+ *  - 런: 파워 판타지 엔진(PD-3). 상한을 키운다(RUN). T7·T-RUN2 파리티 안에서.
+ *  - PvP: 대칭 보호. 프리셋은 강화 0, 완성끼리도 PvP 상한으로 정규화(강화 격차가 대전을 지배하지 않게).
+ * 기본 상수(하위호환)는 런 상한과 같게 둔다. buildProfile 은 옵션 context 로 상한을 고른다.
+ */
 export const ENHANCE_LEVEL_CAP = 3;
+export const ENHANCE_LEVEL_CAP_RUN = 5;
+export const ENHANCE_LEVEL_CAP_PVP = 0;
 
 // ─────────────────────────────────────────────────────────────
 // 배틀 진행

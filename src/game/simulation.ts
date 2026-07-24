@@ -520,6 +520,8 @@ function applyCollisionDamage(
     Balance.COLLISION_DAMAGE_PER_RELATIVE_SPEED *
     (attackMultiplier(source.stats) / massMultiplier(receiver.stats)) *
     burstMultiplier *
+    // STRIKE 세트 완성(공격형, §17-C)이 이 배율을 올린다. 무세트·미완성은 1.0.
+    source.tuning.damageDealtMultiplier *
     scale;
 
   receiver.spin = Math.max(0, receiver.spin - damage);

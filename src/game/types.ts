@@ -36,6 +36,12 @@ export interface BuildTuning {
   readonly burstRegenerationMultiplier: number;
   /** BURST_IMPULSE_SPEED 배율. */
   readonly burstImpulseMultiplier: number;
+  /**
+   * 타격 시 이 팽이가 가하는 충돌 데미지(COLLISION_DAMAGE_PER_RELATIVE_SPEED)에 곱하는 배율.
+   * STRIKE 세트 완성(공격형, §17-C R-SET1)이 이 값을 올린다 — 신규 효과가 아니라 기존 데미지 계수 × 배율(SET3).
+   * 무세트·미완성은 1.0.
+   */
+  readonly damageDealtMultiplier: number;
 }
 
 /** 특성이 하나도 없는 상태(전부 배율 1.0). */
@@ -44,6 +50,7 @@ export const NEUTRAL_TUNING: BuildTuning = {
   knockbackImpulseMultiplier: 1,
   burstRegenerationMultiplier: 1,
   burstImpulseMultiplier: 1,
+  damageDealtMultiplier: 1,
 };
 
 /** 넉백 합산 구간. 표시명과 열리는 레버가 다르다. */

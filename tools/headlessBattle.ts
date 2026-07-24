@@ -563,8 +563,8 @@ function main(): void {
     );
   }
   console.log(
-    `  세트 보너스(N10, 약점 축 보전): STRIKE sta+${Balance.SET_BONUS_STRIKE_STAMINA} / GUARD wgt+${Balance.SET_BONUS_GUARD_WEIGHT} / BREAK sta+${Balance.SET_BONUS_BREAK_STAMINA}` +
-      ` / 강화 스케일 level당 +${Balance.ENHANCE_SCALE_PER_LEVEL}(상한 ${Balance.ENHANCE_LEVEL_CAP})`,
+    `  세트 보너스: STRIKE 데미지×${Balance.STRIKE_SET_DAMAGE_MULTIPLIER}(공격형 §17-C) / GUARD wgt+${Balance.SET_BONUS_GUARD_WEIGHT} / BREAK sta+${Balance.SET_BONUS_BREAK_STAMINA}` +
+      ` / 강화 level당 +${Balance.ENHANCE_SCALE_PER_LEVEL}(상한 기본${Balance.ENHANCE_LEVEL_CAP}/런${Balance.ENHANCE_LEVEL_CAP_RUN}/PvP${Balance.ENHANCE_LEVEL_CAP_PVP})`,
   );
   console.log('');
 
