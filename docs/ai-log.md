@@ -1028,3 +1028,58 @@ STRIKE 배율은 런 압도(강화가 주 견인)엔 여유가 크나, **PvP 완
 3. D-3 5·6구간 신설 / U15 압도 상한(관측만, 미측정) — 완주율 커브 완만화 대안으로 상신.
 4. D-4 PT-1-B — 봇 튜닝 재작성 불요, 가시화(technical-artist) 라우팅 권고.
 5. 기준 실력 3종 잠정 정의(§16-5-1). "최종 판만 파리티" 미구현. 사람 실플레이 미검증.
+
+---
+
+## §17 L0 배선 — 런/PvP 컨텍스트 실적용 + 3택1 리롤(N=2)
+
+**날짜:** 2026-07-24
+**담당 역할 에이전트:** `gameplay-programmer`
+**사용 도구:** Claude Code (Opus 4.8) / 헤드리스 SSR 검증(브라우저 시각 확인 도구 없음 — 미확인 명시)
+
+### 목표
+디렉터 §17-F / systems-designer §18 확정 수치를 **실제 게임 플레이에 배선**한다.
+(1) 런 세션이 `buildProfile` 을 run 컨텍스트로 호출해 STRIKE ×1.25·런 강화 상한이 실제 배틀에 반영,
+    PvP 진입은 pvp 컨텍스트(강화 0 정규화·세트 유지)로 호출되게 미리 배선(S3 대비).
+(2) 3택1 리롤 런당 2회(§18-5) — 기존 3택1 화면에 버튼 1개, 남은 횟수 표시·0 이면 비활성, 결정론.
+미러 봇은 D-2 로 미채택 — dormant 유지, 게임에 켜지 않음.
+
+### 생성 결과 / 사람이 고친 부분 (지우지 않는다)
+- **런 컨텍스트 미배선 발견.** `session.ts createBattleForCurrentBattle` 의 플레이어 정의와
+  `run.ts runBuildProfile` 이 `applySetBonus:true` 만 넘기고 `context:'run'` 을 **빠뜨리고 있었다.**
+  STRIKE ×1.25 자체는 applySetBonus 로 이미 실렸으나(damageDealtMultiplier), 런 강화 상한 의도가
+  코드에 없어 기본 상한(ENHANCE_LEVEL_CAP=3)으로 흐르고 있었다 → 두 곳에 `context:'run'` 명시.
+  리워드 강화가 ENHANCE_LEVEL_CAP(=3)로 이미 clamp 되므로 실제 레벨 ≤ 런 상한이라 **출력 바이트 동일**
+  (smoke·smoke:run·smoke:tiers 3종 diff 0). 컨텍스트는 "런은 런 상한을 쓴다"는 의도의 배선이다.
+- **STRIKE ×1.25 실적용 확인.** STRIKE완성+3 을 run 컨텍스트로 정의 → `battle.beyblades[0].tuning.
+  damageDealtMultiplier = 1.25`, attack 90(+3 강화 실림). 무세트는 1.0. 이 배율이 시뮬
+  `applyCollisionDamage` 에서 상대 회전력 차감에 곱해진다(§17-F "상대 회전력을 눈에 띄게 깎는다"의 지점).
+- **PvP 컨텍스트 배선(S3 대비).** `pvpCombatantProfile(build) = buildProfile(build,{applySetBonus:true,
+  context:'pvp'})` 단일 경로 신설. `buildPvpEntries` 의 프리셋·저장팽이가 전부 이 경로로 흐르게 함
+  → 강화 0 정규화(PVP 상한=0), 세트 완성 상태 유지. 검증: 같은 STRIKE완성+3 이 pvp 컨텍스트에서
+  attack 66(+0 정규화)·damageDealtMultiplier 1.25. 저장팽이는 저장 stats(런 컨텍스트)가 PvP 를
+  오도하므로 id 로 빌드 재구성해 재도출(손상 데이터면 저장 stats 폴백). enhanceTotal 표시도 0 으로
+  정직화(§18-4 "PvP 는 강화 격차 없음").
+- **리롤(§17-D).** `RunState.rerollsRemaining`(런 상태에 담김 → 새 런/전패 리셋에서 자동 초기화 =
+  "패배 시 삭제"). balance.ts 에 런 구조 상수 `RUN_REROLL_COUNT=2` 신설(밸런스 배율과 별개).
+  `consumeReroll(run)` 순수 함수 + session `rerollReward()`(남으면 `generateRewards(build, run.random)`
+  재추첨 — run.random 만 소비). 화면: 기존 3택1 화면에 버튼 1개(`reward:reroll`), 카드 3장 아래
+  중앙, 남은 횟수 표시·0 이면 회색 비활성. 키보드 R. **신규 화면 0**(§4-R4 회피 조건 충족).
+- **exactOptionalPropertyTypes 회피.** pvp 헬퍼는 옵션을 항상 정의된 키로만 구성해 이전 세션의
+  `{key:undefined}` tsc 에러 패턴을 반복하지 않았다.
+
+### 실행 확인 / 회귀
+- `npm run build`(tsc --noEmit + vite build) 통과.
+- **회귀 바이트 동일(diff 0):** smoke / smoke:run / smoke:tiers 3종 — 런 컨텍스트 추가가 출력 불변.
+- **리롤 결정론(신규 `npm run smoke:reroll`):** 순수 레이어 재현 8/8, 카운터 감소열 [2..0] 정확 8/8,
+  0 에서 비활성 8/8, 리롤이 3택을 바꿈 8/8, 세션 통합 재현 8/8, 리롤 유무가 최종 런 상태를 가름 8/8.
+- **미러 dormant 유지:** smoke:mirror 정상 구동·재현 8/8(D-2 미채택, 게임에 안 켬).
+- **미확인:** 브라우저 실제 렌더/클릭 시각 확인 도구 없음 — 리롤 버튼 클릭·표시, STRIKE 타격의
+  체감은 사람 재플레이 검증 필요(§0 원칙 — 판정은 PM·QA).
+
+### 미해결 / 사람 판단
+1. 리롤 버튼의 화면 배치(y=512, 폭 300)·색·문구는 헤드리스라 육안 미확인 — 재플레이에서 겹침·가독성 확인.
+2. PvP 는 여전히 stub(S3). pvp 컨텍스트는 프로파일 구성까지만 배선, 실제 대전 없음.
+3. 리롤 N=2 vs 3(U16)·완주율 영향은 리롤 적용 런 시뮬 필요 — 배선됐으니 이제 측정 가능(systems-designer).
+4. 저장팽이 PvP 스탯을 강화 0 으로 정규화·enhanceTotal 0 표시가 "내 완주 트로피가 약해 보인다"로
+   읽힐 여지 — §18-4 의도(강화 정규화)에 부합하나 UX 문구 보강은 PM·technical-artist 판단.
