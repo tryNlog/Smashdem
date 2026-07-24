@@ -153,6 +153,56 @@ function measure(
 }
 
 // ─────────────────────────────────────────────────────────────
+// PT-1-B (봇 난이도 방사형 재조사, §17-F-3) — 무투자 계단의 체감 단차 + 시드 편차
+//
+// 물음(05_플레이테스트.md:L22): 헤드리스 T12 는 단조인데 사람은 "방사형". 가설:
+//  (a) 1→2 승률 단차가 천장 근처라 작다(둘 다 이김) → 승률만으론 안 느껴진다.
+//  (b) 1회 플레이는 판별 시드 편차(스폰 지터·버스트 해시)를 그대로 겪는다 → 시드 노이즈가 단차를 덮는다.
+// 측정: 승률 외에 (1) 지배 마진(이겼을 때 승자 잔여 회전력/100 — 클수록 압도),
+//       (2) 시드별 패배 수(한 판만 겪는 사람의 "운 나쁜 시드" 노출) 를 함께 본다.
+// ─────────────────────────────────────────────────────────────
+
+interface Pt1bResult {
+  winRate: number;
+  avgSeconds: number;
+  dominanceMargin: number; // 이긴 판들의 (승자 잔여 회전력 / SPIN_MAXIMUM) 평균
+  playerLosses: number; // 40 시드 중 플레이어가 진 시드 수(단일 플레이 "운 나쁜 시드" 노출)
+}
+
+function measurePt1b(tier: number, playerTuning: BotTuning): Pt1bResult {
+  const botTuning = botTuningForTier(tier);
+  const playerDef = definitionFromBuild('P', STARTER_BUILD);
+  const botDef = definitionFromBuild('B', STARTER_BUILD);
+  let wins = 0;
+  let totalSeconds = 0;
+  let marginSum = 0;
+  let losses = 0;
+  for (const seed of SEEDS) {
+    const state = createBattleState([playerDef, botDef], seed);
+    const inputs: InputCommand[] = [];
+    for (let step = 0; step < MAXIMUM_STEPS; step += 1) {
+      inputs[PLAYER_INDEX] = botInput(state, PLAYER_INDEX, playerTuning);
+      inputs[BOT_INDEX] = botInput(state, BOT_INDEX, botTuning);
+      stepBattle(state, inputs, Balance.FIXED_DELTA_SECONDS);
+      if (state.phase === 'finished') break;
+    }
+    totalSeconds += state.battleElapsedSeconds;
+    if (state.winnerIndex === PLAYER_INDEX) {
+      wins += 1;
+      marginSum += state.beyblades[PLAYER_INDEX].spin / Balance.SPIN_MAXIMUM;
+    } else {
+      losses += 1;
+    }
+  }
+  return {
+    winRate: wins / SEEDS.length,
+    avgSeconds: totalSeconds / SEEDS.length,
+    dominanceMargin: wins > 0 ? marginSum / wins : 0,
+    playerLosses: losses,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
 // 완주율 — 런 전체 구동. botBuildFor 훅으로 미러 봇 주입(생략 시 현행 STARTER 봇).
 // ─────────────────────────────────────────────────────────────
 
@@ -359,6 +409,20 @@ function main(): void {
     const line = rates.map((r, i) => `${i + 1}구간 ${percent(r)}`).join('  ');
     console.log(`  ${name.padEnd(12)} ${line}   단조감소 ${monotone ? '성립' : '★깨짐'}`);
   }
+  console.log('');
+
+  // ── PT-1-B 방사형 재조사 ─────────────────────────────────────────────
+  console.log('--- PT-1-B: 무투자 계단 체감 단차 + 시드 편차 (기준=중간 심사자, 40 시드) ---');
+  console.log('  승률만 보면 1→2 가 천장 근처라 작다. 지배 마진(이겼을 때 잔여 회전력)·시드별 패배로 단차를 본다.');
+  for (let tier = 1; tier <= 4; tier += 1) {
+    const r = measurePt1b(tier, MEDIUM_PLAYER);
+    console.log(
+      `  ${tier}구간  승률 ${percent(r.winRate)}  지배마진 ${(r.dominanceMargin * 100).toFixed(0)} (잔여회전력%)  ` +
+        `평균 ${r.avgSeconds.toFixed(1)}s  패배시드 ${r.playerLosses}/40`,
+    );
+  }
+  console.log('  ※ 1→2 승률 단차가 작아도 지배마진·판 길이가 뚜렷이 변하면 체감 단차는 있다(승률≠체감).');
+  console.log('    패배시드 수 = 1회 플레이가 "운 나쁜 시드" 하나에 걸릴 노출. 이게 크면 방사형 체감의 원인.');
   console.log('');
 
   // ── 후보 (b) STARTER 강화-only ───────────────────────────────────────
