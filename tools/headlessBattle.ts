@@ -11,7 +11,7 @@
  */
 
 import * as Balance from '../src/game/balance';
-import { botInput } from '../src/game/bot';
+import { botInput, botTuningForTier, type BotTuning } from '../src/game/bot';
 import {
   cloneBattleState,
   createBattleState,
@@ -317,6 +317,92 @@ const MAX_LEVELS: BuildOptions = {
   levels: { layer: Balance.ENHANCE_LEVEL_CAP, disk: Balance.ENHANCE_LEVEL_CAP, driver: Balance.ENHANCE_LEVEL_CAP },
 };
 
+/** PvP 컨텍스트 세트 완성 빌드(강화 상한 PvP=0 으로 정규화, SET4′ 검증용). */
+const PVP_SETS: BuildOptions = { applySetBonus: true, context: 'pvp' };
+
+// ─────────────────────────────────────────────────────────────
+// 런 파워 목표군 T-RUN (§17-A) — 플레이어(완성+강화) vs 봇(구간 튜닝, STARTER 빌드)
+//
+// 좌우/양측 skill 이 다르므로 runSideMatchup 이 아니라 per-side BotTuning 을 받는 전용 러너를 쓴다.
+// 플레이어 skill 은 고정 기준(REFERENCE), 봇은 구간 튜닝만 바꿔 "약한 봇 압도(T-RUN1)·강한 봇 파리티(T-RUN2)"를 본다.
+// ─────────────────────────────────────────────────────────────
+
+/** 기준 플레이어 skill — 조준 오차 0.18rad(숙련), 상시 최대 스로틀. botTiers.ts SKILLED 와 정합. */
+const REFERENCE_PLAYER: BotTuning = {
+  decisionIntervalSeconds: 0.1,
+  aimErrorRadians: 0.18,
+  throttle: 1,
+  burstDistance: 160,
+  burstProbability: 0.6,
+};
+
+interface RunMatchResult {
+  playerWinRate: number;
+  averageSeconds: number;
+  selfEjectByPlayer: number; // T4 회귀 — 플레이어(공격 증폭 측)가 자력 이탈했는가
+  battles: number;
+}
+
+/** 플레이어(index 0, playerTuning) vs 봇(index 1, botTuning) 한 판. selfInflicted 이탈이 플레이어에서 났는지도 본다. */
+function runTunedBattle(
+  playerDef: BeybladeDefinition,
+  playerTuning: BotTuning,
+  botDef: BeybladeDefinition,
+  botTuning: BotTuning,
+  seed: number,
+): { playerWon: boolean; battleSeconds: number; playerSelfEject: boolean } {
+  const state = createBattleState([playerDef, botDef], seed);
+  const inputs: InputCommand[] = [];
+  let playerSelfEject = false;
+  for (let step = 0; step < MAXIMUM_STEPS; step += 1) {
+    inputs[0] = botInput(state, 0, playerTuning);
+    inputs[1] = botInput(state, 1, botTuning);
+    stepBattle(state, inputs, Balance.FIXED_DELTA_SECONDS);
+    for (const event of state.events) {
+      if (event.kind === 'ringOut' && event.beybladeIndex === 0 && event.selfInflicted) {
+        playerSelfEject = true;
+      }
+    }
+    if (state.phase === 'finished') break;
+  }
+  return {
+    playerWon: state.winnerIndex === 0,
+    battleSeconds: state.battleElapsedSeconds,
+    playerSelfEject,
+  };
+}
+
+/** 플레이어 빌드(옵션 포함) vs 봇 구간(STARTER 빌드 + 구간 튜닝) — 시드 40×좌우 교대. */
+function runRunMatchup(
+  playerBuild: Build,
+  playerOptions: BuildOptions,
+  botTier: number,
+): RunMatchResult {
+  const playerDef = definitionFromBuild('P', playerBuild, playerOptions);
+  const botDef = definitionFromBuild('B', STARTER_BUILD); // 봇 빌드 스왑 반려 — STARTER 고정(§16-4)
+  const botTuning = botTuningForTier(botTier);
+  let wins = 0;
+  let selfEject = 0;
+  let totalSeconds = 0;
+  let battles = 0;
+  for (const seed of SEEDS) {
+    // 좌우 교대: 스폰 편향 상쇄. 플레이어를 항상 index 0 으로 두되 시드 변주로 좌우를 흔든다.
+    for (const flip of [0, 1]) {
+      const r = runTunedBattle(playerDef, REFERENCE_PLAYER, botDef, botTuning, seed + flip * 104729);
+      battles += 1;
+      if (r.playerWon) wins += 1;
+      if (r.playerSelfEject) selfEject += 1;
+      totalSeconds += r.battleSeconds;
+    }
+  }
+  return {
+    playerWinRate: wins / battles,
+    averageSeconds: totalSeconds / battles,
+    selfEjectByPlayer: selfEject,
+    battles,
+  };
+}
+
 // ─────────────────────────────────────────────────────────────
 // T4 — 자력 이탈 회귀 프로브 (전 빌드, 방향키만이 판정 범위)
 // ─────────────────────────────────────────────────────────────
@@ -614,6 +700,38 @@ function main(): void {
     `  BREAK완성 vs 스태미나(무세트) RB 승률 ${percent(set4b.winRateA)}  상한 75%(SET4′)  ${set4b.winRateA <= 0.75 ? '상한 이하' : '★ 상한 초과 = SET4′ 위반'}`,
   );
   console.log(`  (②단계 세트 0 기준선 RB vs 스태미나 63.7% 대비 변화를 본다. sta 보너스 포화로 ~70% 에서 정체)`);
+  console.log('');
+
+  // ─── §17 런 파워 목표군 T-RUN (완성+강화 vs 봇) ───
+  console.log('--- ★ §17 T-RUN 런 파워 (STRIKE완성 + 런강화 vs 봇, SET4′ 런 해제) ---');
+  console.log(`  STRIKE 데미지 배율 ${Balance.STRIKE_SET_DAMAGE_MULTIPLIER} / 런 강화 상한 +${Balance.ENHANCE_LEVEL_CAP_RUN} / 기준 플레이어 조준오차 ${REFERENCE_PLAYER.aimErrorRadians}rad`);
+  for (const lv of [3, Balance.ENHANCE_LEVEL_CAP_RUN]) {
+    const opt: BuildOptions = { applySetBonus: true, context: 'run', levels: { layer: lv, disk: lv, driver: lv } };
+    const prof = buildProfile(SET_BUILDS.STRIKE, opt);
+    const run1 = runRunMatchup(SET_BUILDS.STRIKE, opt, 1); // vs 1구간 봇(약) — 압도
+    const run2 = runRunMatchup(SET_BUILDS.STRIKE, opt, 4); // vs 4구간 봇(강) — 파리티
+    console.log(
+      `  STRIKE3/3 +${lv}(atk${prof.stats.attack}/dmg×${prof.tuning.damageDealtMultiplier.toFixed(2)})  ` +
+        `T-RUN1(vs 1구간) ${percent(run1.playerWinRate)} [압도 목표]  ` +
+        `T-RUN2(vs 4구간) ${percent(run2.playerWinRate)} [파리티 목표]  ` +
+        `길이 ${run1.averageSeconds.toFixed(1)}/${run2.averageSeconds.toFixed(1)}s  ` +
+        `★T4 플레이어 자력이탈 ${run1.selfEjectByPlayer + run2.selfEjectByPlayer}건`,
+    );
+  }
+  console.log('');
+
+  // ─── §17-B PvP 컨텍스트 SET4′ (완성끼리, 강화 PvP=0) ≤75% ───
+  console.log('--- ★ §17-B PvP 컨텍스트 SET4′ (세트 완성끼리, 강화 PvP상한=0, ≤75%) ---');
+  const pvpPairs: Array<[string, Build, Build]> = [
+    ['STRIKE완성 vs GUARD완성', SET_BUILDS.STRIKE, SET_BUILDS.GUARD],
+    ['STRIKE완성 vs BREAK완성', SET_BUILDS.STRIKE, SET_BUILDS.BREAK],
+    ['BREAK완성 vs GUARD완성', SET_BUILDS.BREAK, SET_BUILDS.GUARD],
+  ];
+  for (const [label, a, b] of pvpPairs) {
+    const m = runSideMatchup(label, { label: 'A', build: a, options: PVP_SETS }, { label: 'B', build: b, options: PVP_SETS });
+    const over = m.winRateA > 0.75 || 1 - m.winRateA - m.drawRatio > 0.75;
+    console.log(`  ${label.padEnd(22)} A ${percent(m.winRateA)} / B ${percent(1 - m.winRateA - m.drawRatio)}  ${over ? '★ SET4′(75%) 초과' : '양방향 ≤75%'}`);
+  }
   console.log('');
 
   // 1,280판 실시간 실측
