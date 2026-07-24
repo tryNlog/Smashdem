@@ -298,7 +298,7 @@ export const SET_BONUS_BREAK_STAMINA = 5;
  * 런 컨텍스트에서 봇 압도(T-RUN1)의 뽕맛 절반(나머지 절반은 강화·가시화). §17-C / 17-F-1.
  * ④단계 런 스윕으로 확정 대상 — T-RUN1 압도 하한 만족하는 값이되 T4(자력 링아웃 0)·PvP SET4′(≤75%) 회귀 안에서.
  */
-export const STRIKE_SET_DAMAGE_MULTIPLIER = 1.35;
+export const STRIKE_SET_DAMAGE_MULTIPLIER = 1.25;
 
 /**
  * GUARD 역전형(§17-C, L1) — 세트 완성 시 자연 감소 저항 배율(SPIN_DECAY 에 곱). <1 이면 덜 닳는다.

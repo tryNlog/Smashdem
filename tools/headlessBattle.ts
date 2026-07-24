@@ -715,9 +715,10 @@ function main(): void {
         `T-RUN1(vs 1구간) ${percent(run1.playerWinRate)} [압도 목표]  ` +
         `T-RUN2(vs 4구간) ${percent(run2.playerWinRate)} [파리티 목표]  ` +
         `길이 ${run1.averageSeconds.toFixed(1)}/${run2.averageSeconds.toFixed(1)}s  ` +
-        `★T4 플레이어 자력이탈 ${run1.selfEjectByPlayer + run2.selfEjectByPlayer}건`,
+        `자력이탈(버스트포함,참고) ${run1.selfEjectByPlayer + run2.selfEjectByPlayer}건`,
     );
   }
+  console.log('  ※ T4 무관용 판정은 위 "방향키만" 프로브(0건)다. 위 자력이탈은 버스트 포함이라 수용 항목(PM 판정).');
   console.log('');
 
   // ─── §17-B PvP 컨텍스트 SET4′ (완성끼리, 강화 PvP=0) ≤75% ───
