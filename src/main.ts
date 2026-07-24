@@ -59,6 +59,11 @@ function bootstrap(): void {
       if (event.key === '1') selectReward('reward:0');
       else if (event.key === '2') selectReward('reward:1');
       else if (event.key === '3') selectReward('reward:2');
+      else if (event.key === 'r' || event.key === 'R') {
+        // 리롤(§17-D) — 남은 횟수 판정·재추첨은 세션이 한다(0 이면 무반응).
+        audio.play('rewardSelect');
+        session.activate('reward:reroll');
+      }
     } else if (session.screen === 'pvpSelect' && event.key === 'Escape') {
       session.activate('pvp:back');
     }

@@ -40,6 +40,12 @@ export interface RunState {
   phase: RunPhase;
   /** 이번 런에서 이긴 판 수(HUD·격납고 표시용). */
   wins: number;
+  /**
+   * 남은 3택1 리롤 횟수(§17-D / 18-5). 런 시작 시 RUN_REROLL_COUNT(=2)에서 시작해 리롤할 때마다 감소.
+   * 런 상태에 담기므로 새 런(전패 리셋 포함)에서 자동 초기화된다 = "패배 시 삭제"(§17-F-2).
+   * 리롤 재추첨은 run.random 만 소비한다 → 같은 시드·같은 리롤 시퀀스면 같은 결과(결정론).
+   */
+  rerollsRemaining: number;
   /** 런 진행 난수. 드랍·배틀 시드가 여기서만 나온다(결정론). */
   random: RandomState;
 }
@@ -63,8 +69,20 @@ export function createRun(random: RandomState): RunState {
     build: starterRunBuild(),
     phase: 'inRun',
     wins: 0,
+    rerollsRemaining: Balance.RUN_REROLL_COUNT,
     random,
   };
+}
+
+/**
+ * 리롤을 1회 소비한다(§17-D). 남은 횟수가 있으면 감소시키고 true, 없으면 상태 불변 false.
+ * 실제 재추첨(generateRewards) 은 세션이 이 함수가 true 를 반환했을 때만 run.random 으로 돌린다.
+ * 순수·결정론: 부작용 없이 run 필드만 갱신한다.
+ */
+export function consumeReroll(run: RunState): boolean {
+  if (run.rerollsRemaining <= 0) return false;
+  run.rerollsRemaining -= 1;
+  return true;
 }
 
 /** RunBuild → 배틀 계산용 Build(파츠 3개). */
@@ -80,11 +98,16 @@ export function runBuildLevels(build: RunBuild): { layer: number; disk: number; 
 /**
  * 런 빌드의 배틀용 프로파일. 게임 런타임이므로 세트 보너스를 적용한다(applySetBonus: true).
  * ③단계 측정(§14-7)은 세트 OFF 기준선이었고, 런 통합에서 세트를 켜는 것이 이 함수의 역할이다.
+ *
+ * context: 'run' — 런 강화 상한(ENHANCE_LEVEL_CAP_RUN)을 쓴다(§17-B / 18-4). 리워드 강화가
+ * ENHANCE_LEVEL_CAP(=3) 로 이미 clamp 되므로 실제 레벨은 상한 안이라 출력은 컨텍스트 없을 때와
+ * 바이트 동일하다 — 컨텍스트는 "런은 런 상한을 쓴다"는 의도를 코드에 명시하는 배선이다.
  */
 export function runBuildProfile(build: RunBuild): BuildProfile {
   return buildProfile(runBuildToBuild(build), {
     levels: runBuildLevels(build),
     applySetBonus: true,
+    context: 'run',
   });
 }
 

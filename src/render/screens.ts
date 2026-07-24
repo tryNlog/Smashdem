@@ -53,6 +53,13 @@ function rewardButtons(canvas: HTMLCanvasElement): UiButton[] {
   }));
 }
 
+/** 3택1 화면의 리롤 버튼(§17-D — 신규 화면 없이 기존 화면에 버튼 1개). 카드 3장 아래 중앙. */
+function rewardRerollButton(canvas: HTMLCanvasElement): UiButton {
+  const w = 300;
+  const h = 46;
+  return { id: 'reward:reroll', x: (canvas.width - w) / 2, y: 512, w, h };
+}
+
 function runResultButtons(canvas: HTMLCanvasElement, session: Session): UiButton[] {
   const buttons: UiButton[] = [];
   const won = session.run.phase === 'won';
@@ -115,7 +122,9 @@ function battleButtons(canvas: HTMLCanvasElement): UiButton[] {
 function buttonsFor(canvas: HTMLCanvasElement, session: Session): UiButton[] {
   switch (session.screen) {
     case 'reward':
-      return rewardButtons(canvas);
+      // 3장 카드 + 리롤 버튼 1개. 리롤은 남은 횟수 0 이어도 히트영역에 두되(클릭 시 무반응),
+      // 그리기에서 비활성 표시한다(§17-D "0 이면 비활성"). 카드 매핑은 앞 3개 인덱스만 쓴다.
+      return [...rewardButtons(canvas), rewardRerollButton(canvas)];
     case 'runResult':
       return runResultButtons(canvas, session);
     case 'pvpSelect':
@@ -198,13 +207,26 @@ function drawRewardScreen(context: CanvasRenderingContext2D, canvas: HTMLCanvasE
 
   context.fillStyle = HUD_COLORS.overlaySubText;
   context.font = '500 17px "Segoe UI", "Malgun Gothic", sans-serif';
-  context.fillText('카드를 클릭하거나 1 / 2 / 3 키로 선택 — 리롤 없음', canvas.width / 2, 116);
+  context.fillText('카드를 클릭하거나 1 / 2 / 3 키로 선택 · R 키로 리롤', canvas.width / 2, 116);
 
   const buttons = rewardButtons(canvas);
   session.rewards.forEach((card, index) => {
     const button = buttons[index];
     if (button) drawRewardCard(context, button, card, session, index);
   });
+
+  // 리롤 버튼(§17-D) — 남은 횟수 표시, 0 이면 비활성.
+  const remaining = session.run.rerollsRemaining;
+  const enabled = remaining > 0;
+  const rerollButton = rewardRerollButton(canvas);
+  drawButton(
+    context,
+    rerollButton,
+    enabled ? `↻ 리롤 — 3택 다시 뽑기   (남은 ${remaining}회)` : '리롤 소진 (남은 0회)',
+    enabled
+      ? { fill: '#2b3a52', border: '#5b7bb0', text: '#cfe0ff' }
+      : { fill: '#20242f', border: '#3a3f4a', text: '#6b7280' },
+  );
 }
 
 function drawRewardCard(

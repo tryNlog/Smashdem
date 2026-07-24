@@ -17,6 +17,7 @@ import { applyReward, generateRewards } from '../game/rewards';
 import type { BotBuildAssignment, RunBuild, RunState } from '../game/run';
 import {
   advanceAfterReward,
+  consumeReroll,
   createRun,
   nextBattleSeed,
   recordBattleResult,
@@ -30,8 +31,8 @@ import type { HangarEntry } from './hangar';
 import { entryFromRunBuild, loadHangar, saveHangar, withEntryAt } from './hangar';
 import { PVP_PRESETS } from './presets';
 import type { BeybladeStats } from '../game/types';
-import type { SetTag } from '../game/parts';
-import { buildProfile, completedSet } from '../game/parts';
+import type { Build, SetTag } from '../game/parts';
+import { buildFromIds, buildProfile, completedSet } from '../game/parts';
 
 export const PLAYER_INDEX = 0;
 export const BOT_INDEX = 1;
@@ -101,9 +102,13 @@ export function createSession(seedSource: () => number, options: SessionOptions 
 
   function createBattleForCurrentBattle(forRun: RunState): BattleState {
     // 플레이어 정의 — 런 빌드에 강화·세트 보너스를 얹는다(buildProfile 재사용).
+    // context: 'run' — 런 강화 상한(§17-B/18-4)을 명시. STRIKE 세트 완성이면 damageDealtMultiplier
+    // ×1.25 가 여기서 실어지고(applySetBonus), 그게 배틀 시뮬(applyCollisionDamage)에서 상대 회전력을
+    // 더 깎는다 = "스트라이커가 상대 회전력을 눈에 띄게 깎는다"(§17-F)의 실제 배선 지점이다.
     const playerDefinition = definitionFromBuild('나', runBuildToBuild(forRun.build), {
       levels: runBuildLevels(forRun.build),
       applySetBonus: true,
+      context: 'run',
     });
     // 봇 정의 — 기본은 시작 빌드 고정(현행). options.botBuildFor 가 주어지면 그 해석기가 준
     // 빌드+옵션(미러 봇 등)을 쓴다. 티어별 강도는 봇 파라미터(botTuningForTier)로도 함께 준다.
@@ -142,6 +147,16 @@ export function createSession(seedSource: () => number, options: SessionOptions 
     advanceAfterReward(run, nextBuild);
     rewards = [];
     startNextBattle();
+  }
+
+  /**
+   * 3택1 리롤(§17-D) — 남은 횟수가 있으면 3택 전부 재추첨(N7 드랍 테이블 재롤).
+   * 재추첨은 run.random 만 소비 → 같은 시드·같은 리롤 시퀀스면 같은 3택(결정론). 신규 화면 없음.
+   */
+  function rerollReward(): void {
+    if (screen !== 'reward') return;
+    if (!consumeReroll(run)) return;
+    rewards = generateRewards(run.build, run.random);
   }
 
   function saveToSlot(slotIndex: number): void {
@@ -221,6 +236,10 @@ export function createSession(seedSource: () => number, options: SessionOptions 
     },
 
     activate(id: string): void {
+      if (id === 'reward:reroll') {
+        rerollReward();
+        return;
+      }
       if (id.startsWith('reward:')) {
         chooseReward(Number(id.slice('reward:'.length)));
         return;
@@ -252,12 +271,22 @@ export function createSession(seedSource: () => number, options: SessionOptions 
   };
 }
 
-/** 프리셋 3종 + 저장 팽이(최대 5) 를 출전 선택 카드로 만든다(§13-2). */
+/**
+ * PvP 컨텍스트 전투 프로파일(§18-4, S3 대비 배선).
+ *  - context: 'pvp' → 강화 레벨이 ENHANCE_LEVEL_CAP_PVP(=0) 으로 clamp = 완주 빌드의 강화 격차 정규화.
+ *  - applySetBonus: true → 세트 완성 상태는 유지(STRIKE ×1.25·BREAK sta+5 등이 PvP 에서도 유효, SET4′ ≤75% 검증 대상).
+ * S3 실시간 대전이 붙으면 이 함수가 PvP 팽이 정의(definitionFromBuild)의 옵션 소스가 된다.
+ */
+function pvpCombatantProfile(build: Build) {
+  return buildProfile(build, { applySetBonus: true, context: 'pvp' });
+}
+
+/** 프리셋 3종 + 저장 팽이(최대 5) 를 출전 선택 카드로 만든다(§13-2). PvP 컨텍스트로 정규화(강화 0). */
 function buildPvpEntries(hangar: readonly (HangarEntry | null)[]): PvpEntryView[] {
   const entries: PvpEntryView[] = [];
 
   for (const preset of PVP_PRESETS) {
-    const profile = buildProfile(preset.build);
+    const profile = pvpCombatantProfile(preset.build);
     const tag = completedSet(preset.build);
     entries.push({
       id: `preset:${preset.key}`,
@@ -272,14 +301,23 @@ function buildPvpEntries(hangar: readonly (HangarEntry | null)[]): PvpEntryView[
 
   hangar.forEach((slot, index) => {
     if (!slot) return;
+    // 완주 빌드를 PvP 컨텍스트로 정규화(강화 0)해 스탯을 재도출한다 — 격납고에 저장된 stats 는
+    // 런 컨텍스트(강화 반영)라 PvP 매치업을 오도한다(§18-4). 손상 데이터면 저장 스냅샷으로 폴백.
+    let pvpStats = slot.stats;
+    try {
+      pvpStats = pvpCombatantProfile(buildFromIds(slot.layerId, slot.diskId, slot.driverId)).stats;
+    } catch {
+      // 손상된 격납고 엔트리 — 저장된 stats 로 진행(런은 계속 가능, §13-1).
+    }
     entries.push({
       id: `saved:${index}`,
       name: slot.name,
       kind: 'saved',
       setTag: slot.completedSet,
       completedSet: slot.completedSet !== null,
-      enhanceTotal: slot.enhanceTotal,
-      stats: slot.stats,
+      // PvP 정규화로 강화는 0. 표시도 0 으로 두어 "PvP 에서는 강화 격차 없음"(§18-4)을 정직하게 반영.
+      enhanceTotal: 0,
+      stats: pvpStats,
     });
   });
 
