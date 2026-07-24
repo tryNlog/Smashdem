@@ -9,7 +9,7 @@
  */
 
 import { createRandomState } from '../engine/random';
-import { botInput, botTuningForTier } from '../game/bot';
+import { botInput, botTuningForTier, type BotTuning } from '../game/bot';
 import { createBattleState, definitionFromBuild } from '../game/battleState';
 import type { BattleState, InputCommand } from '../game/types';
 import type { RewardCard } from '../game/rewards';
@@ -76,6 +76,12 @@ export interface Session {
  */
 export interface SessionOptions {
   readonly botBuildFor?: (playerBuild: RunBuild, tier: number) => BotBuildAssignment;
+  /**
+   * 봇 스킬 튜닝 해석기(미러 봇 스킬 다이얼 측정·배선용). 생략 시 botTuningForTier(tier)(현행).
+   * 미러가 봇 빌드를 플레이어와 대등하게 올릴 때, 스킬을 4구간 최대치로 두면 봇 우세로 과조준되므로
+   * 스킬을 별도 축으로 낮춰 파리티를 맞추기 위한 훅. 결정론 규율: 순수 함수여야 한다.
+   */
+  readonly botTuningFor?: (playerBuild: RunBuild, tier: number) => BotTuning;
 }
 
 /**
@@ -202,9 +208,12 @@ export function createSession(seedSource: () => number, options: SessionOptions 
       if (screen !== 'battle') return;
 
       const tier = tierForBattle(run.battleNumber);
+      const botTuning = options.botTuningFor
+        ? options.botTuningFor(run.build, tier)
+        : botTuningForTier(tier);
       const inputs: InputCommand[] = [];
       inputs[PLAYER_INDEX] = playerInput;
-      inputs[BOT_INDEX] = botInput(battle, BOT_INDEX, botTuningForTier(tier));
+      inputs[BOT_INDEX] = botInput(battle, BOT_INDEX, botTuning);
 
       stepBattle(battle, inputs, deltaSeconds);
 
