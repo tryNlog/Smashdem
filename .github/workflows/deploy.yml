@@ -40,6 +40,8 @@ jobs:
       # package.json 의 build = "tsc --noEmit && vite build",
       # vite.config.ts 의 outDir = "dist" → 산출물은 ./dist.
       - name: Build
+        env:
+          VITE_RELAY_URL: ${{ vars.VITE_RELAY_URL }}
         run: npm run build
 
       - name: Setup Pages

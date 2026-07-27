@@ -50,8 +50,7 @@ function bootstrap(): void {
   }
   const roomCodeInput: HTMLInputElement = roomCodeInputElement;
 
-  const viteEnvironment = import.meta as ImportMeta & { readonly env?: { readonly VITE_RELAY_URL?: string } };
-  const relayUrl = resolveRelayUrl(viteEnvironment.env?.VITE_RELAY_URL, window.location.hostname);
+  const relayUrl = resolveRelayUrl(import.meta.env.VITE_RELAY_URL, window.location.hostname);
   const onlineMatch = createOnlineMatch({
     events: {
       onRoomCode(code) {

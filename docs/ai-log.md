@@ -1401,3 +1401,29 @@ Canvas 대기실을 실제 `OnlineClient`/`OnlineMatch`와 연결하되, 런의 
 ### 미해결 / 다음 인계
 1. 이 스모크는 Node WebSocket이며 Canvas의 pointer/keyboard/room input 배치는 확인하지 않는다. 사람 브라우저 두 탭의 UI·조작 검증은 잔존한다.
 2. 공개 Cloudflare Worker 및 GitHub Pages `wss://` 연결은 미설정이다.
+---
+
+## S3 공개 relay build 환경 경계 (Codex)
+
+**날짜:** 2026-07-27
+**담당:** Codex
+**근거:** `src/main.ts:53-54`, GitHub Pages workflow `.github/workflows/deploy.yml`, local relay client 경계 `src/net/onlineClient.ts:66-70`.
+
+### 목표
+GitHub Pages의 public build가 PM이 등록한 `VITE_RELAY_URL`을 받아 `wss://` Cloudflare Worker relay로 연결할 수 있게 하고, URL 미설정 Pages가 insecure `ws://` 연결을 열지 않게 유지한다.
+
+### 관측과 수정
+- placeholder `VITE_RELAY_URL=wss://relay.example`로 `npm run build`를 실행했을 때 bundle에 endpoint가 없었다. build 산출물은 `import.meta.env?.VITE_RELAY_URL`을 그대로 남겼다.
+- 원인 가설: Vite의 정적 치환은 direct `import.meta.env.VITE_RELAY_URL` expression을 대상으로 하며 optional chaining이 든 경로는 치환하지 않는다.
+- `tools/relayBuild.mjs`를 먼저 추가했다. 초기 실행은 Windows `npx.cmd` spawn과 file URL 경로 처리에서 멈췄고, `process.execPath` + `fileURLToPath`으로 test runner만 수정했다. 그 뒤 expected failure는 `VITE_RELAY_URL was not embedded in the production bundle`이었다.
+- `src/main.ts`를 direct expression으로 바꾸고 `src/vite-env.d.ts`에서 local `ImportMetaEnv` type을 선언했다. `node tools/relayBuild.mjs`는 `Relay build configuration cases: 1/1 observed`를 출력했다.
+- GitHub Actions Build step에는 `VITE_RELAY_URL: ${{ vars.VITE_RELAY_URL }}`를 넣었다. 값이 없는 경우 빈 값으로 build되고 기존 Pages 대기실 문구가 유지된다.
+
+### 실행 관측
+- `node tools/relayBuild.mjs` → `Relay build configuration cases: 1/1 observed` (2026-07-27).
+- `npm run build` → 종료 코드 0 (2026-07-27).
+
+### 미해결 / 다음 인계
+1. Cloudflare account 배포 URL과 GitHub Actions 변수 등록은 PM 계정 작업이다. public `wss://` 값은 아직 관측하지 않았다.
+2. Pages 공개 build의 Worker WebSocket과 Canvas 두 브라우저 입력은 사람 시험이 필요하다.
+3. Cloudflare token·account ID는 소스·Actions variable·문서에 기록하지 않는다.

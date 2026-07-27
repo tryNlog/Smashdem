@@ -6,12 +6,11 @@
 - **현재 담당:** Codex (Claude의 월간 사용량 한도로 인계받음)
 - **Claude 제한 해제 예정 시각:** `[UNSUPPORTED]` — 마지막 메시지는 "monthly spend limit"만 표시했고, 복귀 시각을 제공하지 않았다. 다음 Claude 제한 메시지에 시각이 있으면 이 줄에 기록한다.
 - **Codex 복귀 가능 시각:** 현재 세션에서 인계 시 기입.
-- **브랜치:** s2-run (S3 Task 5b + real local WebSocket smoke 작성됨, 커밋 직전; Task 5b `8242067`; Task 5a `1ab6804`; Task 4 `f477625`). remote 있음, **push 금지**.
-- **트리:** real local WebSocket smoke·로그·바통 기록을 같은 컴파일 조각으로 커밋 예정 (Codex 확인: 2026-07-27).
-
+- **브랜치:** `s2-run`; 최신 로컬 커밋 `67f5e6a`은 실제 local relay 경로 스모크다. remote `origin`은 있고, **push 금지**.
+- **트리:** 배포 URL 주입 경계와 S3 릴레이 문서 갱신 중. 이후 `git status`와 커밋 해시로 인계 상태를 다시 기록한다.
 ## 진행 중 작업
-- **Codex S3 Task 5b 작성됨, 커밋 직전:** main 고정 틱·native 6자리 input·host/guest OnlineMatch handoff를 추가했다. 다음은 로컬 사람 브라우저 2탭→PM 공개 Worker/Pages endpoint 배선이다.
-
+- **S3 공개 relay 배선:** Task 1~5b 및 Node→local Durable Object 실경로 스모크는 로컬 커밋에 있다. 현재는 GitHub Actions `VITE_RELAY_URL` 주입 경계, PM Cloudflare Worker 배포 절차, Pages 두 브라우저 확인 절차를 문서화·점검 중이다.
+- **PM 게이트:** Cloudflare 로그인·`npm run relay:deploy`·GitHub Actions 변수 등록·원격 push·공개 Worker/Canvas 두 브라우저 관찰은 PM 계정과 브라우저가 필요한 작업이다. PM 부재 시 모바일 조작·제출물 큐로 이동한다.
 ## 다음 작업 큐 (우선순위 순, 각 완료 기준 포함)
 1. **[PM 게이트] STRIKE 가시화 재플레이 판정** — PM이 `npm run dev`로 STRIKE 세트 완성 타격이 "확 깎인다"로 읽히는지 확인. 과하거나 부족하면 튜닝값(`src/render/effects.ts`의 SPIN_LOSS_REFERENCE=6, 드레인/rate, 팝업 상한·폰트 범위) 조정. PM 부재면 큐로 두고 아래 항목 먼저.
 2. **S3 실시간 PvP 넷코드** — Task 1~5b(프로토콜·coordinator·relay·browser client·Canvas lobby·main handoff)까지 로컬 소스가 있다. 다음은 로컬 사람 브라우저 2탭 실증 → PM 공개 Worker 배포·Pages endpoint 배선이다. 완료 기준: 브라우저 2탭이 실제로 붙어 한 판 종료까지. 킬 스위치 8/2 23:00(그때까지 안 붙으면 로컬 2인 대전으로 강등). **결정론 계층(src/game)을 흔들지 말 것** — 입력만 주고받고 물리는 host가 단독 계산.
