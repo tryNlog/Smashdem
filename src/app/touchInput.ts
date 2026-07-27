@@ -18,7 +18,8 @@ export interface TouchInputSource {
   dispose(): void;
 }
 
-const DEAD_ZONE_RATIO = 0.22;
+const DIRECTION_ENGAGE_RATIO = 0.22;
+const DIRECTION_SWITCH_RATIO = 0.32;
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.max(minimum, Math.min(maximum, value));
@@ -46,6 +47,7 @@ export function createTouchInputSource(elements: TouchInputElements): TouchInput
   let activeMovePointerId: number | null = null;
   let moveX = 0;
   let moveY = 0;
+  let directionLatched = false;
   let burstQueued = false;
 
   function setKnob(x: number, y: number): void {
@@ -56,6 +58,7 @@ export function createTouchInputSource(elements: TouchInputElements): TouchInput
     activeMovePointerId = null;
     moveX = 0;
     moveY = 0;
+    directionLatched = false;
     setKnob(0, 0);
   }
 
@@ -70,11 +73,16 @@ export function createTouchInputSource(elements: TouchInputElements): TouchInput
     const displayY = rawY * displayScale;
 
     setKnob(displayX * radius, displayY * radius);
-    if (distance < DEAD_ZONE_RATIO) {
-      moveX = 0;
-      moveY = 0;
+    if (!directionLatched) {
+      if (distance < DIRECTION_ENGAGE_RATIO) return;
+      moveX = quantizeAxis(displayX);
+      moveY = quantizeAxis(displayY);
+      directionLatched = true;
       return;
     }
+
+    // A held direction survives small finger drift; release or a larger drag changes it.
+    if (distance < DIRECTION_SWITCH_RATIO) return;
 
     moveX = quantizeAxis(displayX);
     moveY = quantizeAxis(displayY);
