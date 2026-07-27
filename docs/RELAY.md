@@ -14,7 +14,7 @@
 ## 다음 작업 큐 (우선순위 순, 각 완료 기준 포함)
 1. **[PM 게이트] STRIKE 가시화 재플레이 판정** — PM이 `npm run dev`로 STRIKE 세트 완성 타격이 "확 깎인다"로 읽히는지 확인. 과하거나 부족하면 튜닝값(`src/render/effects.ts`의 SPIN_LOSS_REFERENCE=6, 드레인/rate, 팝업 상한·폰트 범위) 조정. PM 부재면 큐로 두고 아래 항목 먼저.
 2. **S3 실시간 PvP 넷코드** — Task 1~5b(프로토콜·coordinator·relay·browser client·Canvas lobby·main handoff)까지 로컬 소스가 있다. 다음은 로컬 사람 브라우저 2탭 실증 → PM 공개 Worker 배포·Pages endpoint 배선이다. 완료 기준: 브라우저 2탭이 실제로 붙어 한 판 종료까지. 킬 스위치 8/2 23:00(그때까지 안 붙으면 로컬 2인 대전으로 강등). **결정론 계층(src/game)을 흔들지 말 것** — 입력만 주고받고 물리는 host가 단독 계산.
-3. **모바일 터치 조작** — 현재 키보드(방향키/Space)+클릭 기반이라 폰에서 막힌다. 가상 스틱/버튼 등으로 터치 조작 추가. 완료 기준: 폰 브라우저에서 런 진행 가능(심사자 폰 접속 대비, 계획서 V1).
+3. **모바일 터치 조작** — 소스 `7f8bf9f`·화면 연결 `40a85cd`은 local commit에 있다. 다음 완료 기준은 폰 브라우저에서 런 진행(8방향 이동·버스트·보상 화면·회전/resize 후 숨김) 관찰이다. 자동 smoke는 명령 변환만 다룬다.
 4. **제출물** — 게임 소개·실행 방법 PDF(#3), AI 활용 기술 PDF(#4), 30~60초 영상. 구간 S5(8/8~9).
 
 ## 인계 로그 (append-only, 최신이 위)
@@ -69,3 +69,8 @@
 - 회귀 관측: normal build 종료 코드 0; protocol 6/6, online client 15/15, lobby 8/8, online match 11/11, local Worker app/client 경로 6/6 (2026-07-27 콘솔).
 - 실행 환경: 모든 항목을 한 PowerShell process로 묶은 명령은 protocol 출력 뒤 892.5초에 timeout이 났다. 이후 각 smoke를 분리 실행하면 위 수치가 나왔다. 원인은 `[UNSUPPORTED]`; 다음 담당은 스모크를 개별 실행해 시간을 기록한다.
 - 다음: PM이 Cloudflare에서 `npm run relay:deploy` 후 출력된 public Worker origin을 `wss://`로 변환해 GitHub Actions `VITE_RELAY_URL`에 넣고 Pages를 재배포한다. 그 뒤 사람 브라우저 두 탭 Canvas 확인을 기록한다. PM 부재 시 큐 #3 모바일 터치 조작으로 이동한다.
+### 2026-07-27 — Codex mobile touch controls
+- 코드: `7f8bf9f`은 DOM Pointer Event를 `InputCommand`로 바꾸는 source와 fake-event smoke를, `40a85cd`은 canvas 하단의 가상 스틱·버스트 버튼과 battle/onlineBattle 화면 연결을 기록한다. `src/game/`은 수정하지 않았다.
+- red→green 관측: source 생성 전 `smoke:touch-input`은 `UNRESOLVED_IMPORT`; battle screen visibility export 추가 전 `MISSING_EXPORT`을 냈다. 이후 touch smoke 8/8, normal build 종료 코드 0, online client 15/15, lobby 8/8, online match 11/11을 콘솔에서 관측했다.
+- 동작 범위: `(pointer: coarse)`에서만 battle/onlineBattle 중 컨트롤을 보이고, 화면 전환·비활성에서 이동/버스트 큐를 지운다. 키보드 축과 터치 축은 `[-1, 1]`로 합산 clamp, burst는 OR다.
+- 다음: 실제 Android/iOS 또는 coarse-pointer 기기에서 8방향·버스트·보상 화면·회전/resize·비전투 숨김을 관찰한다. visual browser automation은 이 환경에서 초기화 오류가 있었으므로, 이 항목은 사람 기기 기록이 필요하다.

@@ -1427,3 +1427,30 @@ GitHub Pages의 public build가 PM이 등록한 `VITE_RELAY_URL`을 받아 `wss:
 1. Cloudflare account 배포 URL과 GitHub Actions 변수 등록은 PM 계정 작업이다. public `wss://` 값은 아직 관측하지 않았다.
 2. Pages 공개 build의 Worker WebSocket과 Canvas 두 브라우저 입력은 사람 시험이 필요하다.
 3. Cloudflare token·account ID는 소스·Actions variable·문서에 기록하지 않는다.
+
+---
+
+## S3 모바일 터치 입력 (Codex)
+
+**날짜:** 2026-07-27
+**담당:** Codex
+**근거:** 모바일 미검증 잔여 `../03_일정.md:112`, 릴레이 큐 `docs/RELAY.md`, 결정론 경계 `src/game/playerInput.ts:1-8`.
+
+### 목표
+키보드와 같은 `InputCommand`를 만드는 가상 스틱·버스트 입력을 `src/game/` 밖에 추가하고, 전투 화면에서만 보이게 한다.
+
+### 실제 작업
+- `tools/touchInput.ts`를 source 전에 작성했다. 첫 실행은 `UNRESOLVED_IMPORT ../src/app/touchInput`이었다.
+- `src/app/touchInput.ts`는 pointer의 이동 구역 중심 대비 좌표를 22% dead zone 밖에서 8방향 `-1|0|1` 축으로 양자화한다. 한 번의 burst pointerdown은 한 fixed tick pulse만 남기고, pointerup/cancel·비활성은 이동과 knob transform을 초기화한다.
+- battle/onlineBattle와 coarse pointer 조건을 고정하는 `shouldShowTouchControls` assertion을 추가했다. 구현 전에는 `MISSING_EXPORT`이었다.
+- `index.html`은 canvas 아래에 108px 이동 영역과 burst button을 두며, `src/main.ts`은 keyboard/touch command를 합산하고 화면 전환마다 `setEnabled`를 갱신한다.
+
+### 실행 관측
+- `npm run smoke:touch-input` → `Touch input cases: 8/8 observed` (2026-07-27).
+- `npm run build` → 종료 코드 0 (2026-07-27).
+- `npm run smoke:online-client` 15/15, `npm run smoke:pvp-lobby` 8/8, `npm run smoke:online-match` 11/11 (2026-07-27).
+
+### 미해결 / 다음 인계
+1. 실제 Android/iOS에서 가상 스틱의 손가락 배치·safe-area·회전/resize·다중 터치 입력은 `[UNSUPPORTED]`이다. 사람 기기에서 런 진행으로 기록한다.
+2. Codex browser 초기화의 `Cannot redefine property: process`는 게임 Canvas 오류를 뜻하지 않는다. 이 환경에서는 visual browser automation으로 터치 배치를 관찰하지 못했다.
+3. Worker public relay와 Pages 두 브라우저 실증은 별도 PM 게이트다.

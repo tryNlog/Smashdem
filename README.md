@@ -25,6 +25,8 @@ https://trynlog.github.io/Smashdem/
 | `M` | 음소거 토글 | `src/main.ts:164-166` |
 | `Enter` | 온라인 대기실에서 6자리 방 코드로 참가 | `src/main.ts:143-152` |
 | `Esc` | 온라인 대기실에서 출전 선택으로 돌아가기 | `src/main.ts:143-152` |
+| 터치 가상 스틱 | 모바일 전투 화면 이동 | `src/app/touchInput.ts`, `index.html` |
+| 번개 버튼 | 모바일 전투 화면 버스트 | `src/app/touchInput.ts`, `index.html` |
 
 온라인 대전은 `온라인 대전` → 출전 팽이 선택 → `방 만들기` 또는 `방 참가` 순서입니다. 방장은 표시된 6자리 코드를 상대에게 전달하고, 참가자는 대기실 입력칸에 붙여 넣습니다 (`src/render/screens.ts`, `src/main.ts:103-129`).
 
@@ -56,9 +58,12 @@ npm run dev
 ```bash
 npm run build
 npm run smoke:relay-build
+npm run smoke:touch-input
 ```
 
 `smoke:relay-build`은 placeholder `wss://relay.example`을 넣어 Vite 산출물에 주소가 포함되는지를 확인하고, 임시 산출물은 스크립트 종료 시 제거합니다 (`tools/relayBuild.mjs`).
+
+smoke:touch-input은 가상 스틱의 8방향 명령, 버스트 1회성, 숨김 시 입력 해제, 키보드+터치 결합을 fake Pointer Event로 점검합니다 (	ools/touchInput.ts). Android/iOS 실제 기기의 손가락 배치·safe-area·다중 터치 반응은 [UNSUPPORTED]이며, 폰에서 런을 직접 진행해 별도 기록합니다.
 
 ## 구조 요약
 
