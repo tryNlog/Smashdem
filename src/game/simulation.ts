@@ -480,8 +480,12 @@ function resolveCollisions(state: BattleState, deltaSeconds: number): void {
       // 양쪽에 똑같은 데미지를 주면 같은 스탯끼리는 회전력 곡선이 완전히 겹쳐 무승부가 쏟아진다.
       // 비대칭을 두는 것이 물리적으로도(파고든 쪽이 유리) 게임적으로도(공격 보상) 맞다.
       defender.lastStruckElapsedSeconds = state.battleElapsedSeconds;
+      // 연출 전용 관측값: 이번 정타로 방어자가 실제로 잃은 회전력. 물리에 되먹이지 않고 이벤트로만 흘린다.
+      // (렌더가 데미지 팝업·게이지 강조를 이 값에 비례시킨다 — STRIKE ×1.25 의 더 큰 감소가 화면에 보이게 한다.)
+      const defenderSpinBefore = defender.spin;
       applyCollisionDamage(attacker, defender, approachSpeed, 1);
       applyCollisionDamage(defender, attacker, approachSpeed, Balance.COLLISION_ATTACKER_RECOIL_RATIO);
+      const defenderSpinLoss = defenderSpinBefore - defender.spin;
 
       // 링아웃 레버 L1·L2·L3 — 강타 판정을 통과한 경우에만.
       // 법선은 항상 "공격자 → 방어자" 방향이어야 밀림이 바깥으로 간다.
@@ -497,6 +501,8 @@ function resolveCollisions(state: BattleState, deltaSeconds: number): void {
         strength,
         attackerIndex: attacker.index,
         defenderIndex: defender.index,
+        defenderSpinLoss,
+        attackerStrikeBoost: attacker.tuning.damageDealtMultiplier > 1,
       });
     }
   }

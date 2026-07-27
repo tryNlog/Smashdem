@@ -139,10 +139,21 @@ export type SimulationEvent =
       readonly kind: 'collision';
       readonly positionX: number;
       readonly positionY: number;
-      /** 0~1 로 정규화한 충돌 세기. 히트스톱·화면 흔들림 강도의 입력. */
+      /** 0~1 로 정규화한 충돌 세기(접근속도 기반). 히트스톱·화면 흔들림 강도의 입력. */
       readonly strength: number;
       readonly attackerIndex: number;
       readonly defenderIndex: number;
+      /**
+       * 연출 전용 — 이번 정타로 방어자가 실제로 잃은 회전력(spin). strength(운동학)와 달리
+       * attack/weight 배율·버스트·STRIKE 세트 배율(damageDealtMultiplier)이 전부 반영된 실측 감소량이다.
+       * 렌더가 데미지 팝업·게이지 강조 세기를 이 값에 비례시킨다(PD-4). 물리에 되먹이지 않는 읽기 전용 값.
+       */
+      readonly defenderSpinLoss: number;
+      /**
+       * 연출 전용 — 공격자가 STRIKE 세트 완성(damageDealtMultiplier>1) 상태였는가.
+       * 렌더가 일반 타격과 STRIKE 타격을 전용 색으로 구분하는 데 쓴다. 판정·물리에는 영향 없음.
+       */
+      readonly attackerStrikeBoost: boolean;
     }
   | {
       readonly kind: 'burstActivated';
