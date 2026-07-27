@@ -11,7 +11,8 @@
     "smoke:run": "vite build --ssr tools/runFlow.ts --outDir dist-tools --logLevel warn && node dist-tools/runFlow.js",
     "smoke:tiers": "vite build --ssr tools/botTiers.ts --outDir dist-tools --logLevel warn && node dist-tools/botTiers.js",
     "smoke:mirror": "vite build --ssr tools/botMirror.ts --outDir dist-tools --logLevel warn && node dist-tools/botMirror.js",
-    "smoke:reroll": "vite build --ssr tools/rerollFlow.ts --outDir dist-tools --logLevel warn && node dist-tools/rerollFlow.js"
+    "smoke:reroll": "vite build --ssr tools/rerollFlow.ts --outDir dist-tools --logLevel warn && node dist-tools/rerollFlow.js",
+    "smoke:pvp-protocol": "vite build --ssr tools/pvpProtocol.ts --outDir dist-tools --logLevel warn && node dist-tools/pvpProtocol.js"
   },
   "devDependencies": {
     "typescript": "^7.0.2",
