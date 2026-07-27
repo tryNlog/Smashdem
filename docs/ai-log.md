@@ -1192,3 +1192,28 @@ STRIKE 타격을 일반 타격과 시각적으로 구분한다.
 3. **성능 육안 미확인.** 팝업/스파크 상한은 뒀으나 실기기 60fps 유지는 사람 확인 필요(심사자 기기 불명).
 4. **매 타격 게이지 번쩍임 강도.** 잦은 충돌에서 번쩍임이 과하면 멀미/피로 — 재플레이 후 peak 상한
    하향 여지.
+
+---
+
+## S3 실시간 PvP — 버전드 릴레이 프로토콜 (Codex Task 1)
+
+**날짜:** 2026-07-27
+**담당:** Codex
+**근거:** `docs/superpowers/plans/2026-07-27-realtime-pvp.md` Task 1, PM 확정 호스트 권위·6자리 방 코드(`../../00_허브.md:32,43,48-49`).
+
+### 목표
+브라우저와 향후 Worker 사이에서 잘못된 JSON·잘못된 방 코드·범위를 벗어난 입력이 전투 루프로 들어오기 전에 차단한다. 물리 계산은 건드리지 않고 `src/net/` 경계에만 둔다.
+
+### 실제 작업
+- 실패 스모크 `tools/pvpProtocol.ts`를 먼저 작성했다. 구현 전 `npm run smoke:pvp-protocol`은 `../src/net/protocol`을 찾지 못해 빌드가 중단됐다(2026-07-27 콘솔 관측).
+- `src/net/protocol.ts`에 `version: 1` 프레임, 6자리 방 코드(혼동 문자 I/O/0/1 제외), 파츠 슬롯 ID 형식, `InputCommand`의 -1/0/1 축과 burst boolean 검사를 추가했다.
+- client(create/join/input/state/leave)와 server(room-created/match-start/remote-input/state/opponent-left/error)를 분리했다. state는 host가 단독 생성하므로 메시지 레벨에서 객체 여부만 검사한다. 전체 BattleState 깊은 검증은 20Hz 스냅샷 비용과 중복되므로 하지 않았다.
+
+### 실행 관측
+- red: `npm run smoke:pvp-protocol` → `UNRESOLVED_IMPORT ../src/net/protocol`.
+- green: 같은 명령 → `PvP protocol parser cases: 6/6 observed`.
+- 회귀: `npm run build` 종료 코드 0, `npm run smoke:run` 동일 시드 8/8 일치 (2026-07-27).
+
+### 미해결 / 다음 인계
+1. BattleState 스냅샷의 깊은 유효성은 아직 없다. host 신뢰 모델에서는 방어하지 못하므로 악의적 host 차단은 범위 밖이다. `[UNSUPPORTED]` 생산 서비스의 안티치트는 별도 신뢰 서버가 필요하다.
+2. 다음 조각은 `src/app/onlineBattle.ts`: host만 `stepBattle`을 호출하고 guest는 더 최신 스냅샷만 렌더하게 하는 coordinator다.

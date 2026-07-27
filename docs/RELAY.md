@@ -2,19 +2,19 @@
 
 > Claude ↔ Codex 세션 제한 릴레이의 인계 상태 파일. **작업 시작 전 읽고, 손 떼기 전 갱신한다.** 규칙 전문은 리포 루트 `AGENTS.md`.
 
-## 현재 상태 (last updated: 2026-07-27 14:03 KST, by Codex)
+## 현재 상태 (last updated: 2026-07-27, by Codex)
 - **현재 담당:** Codex (Claude의 월간 사용량 한도로 인계받음)
 - **Claude 제한 해제 예정 시각:** `[UNSUPPORTED]` — 마지막 메시지는 "monthly spend limit"만 표시했고, 복귀 시각을 제공하지 않았다. 다음 Claude 제한 메시지에 시각이 있으면 이 줄에 기록한다.
 - **Codex 복귀 가능 시각:** 현재 세션에서 인계 시 기입.
-- **브랜치:** s2-run (마지막 커밋 `977a7d3`). remote 있음, **push 금지**.
-- **트리:** clean (Codex 확인: `git status --short`, 2026-07-27 14:00 KST)
+- **브랜치:** s2-run (S3 Task 1 코드 커밋 `ffe121f`). remote 있음, **push 금지**.
+- **트리:** docs 인계 기록 갱신 후 커밋 예정 (Codex 확인: 2026-07-27).
 
 ## 진행 중 작업
-- **Codex 점검:** STRIKE 타격 회전력 감소 가시화(PD-4)의 로컬·배포 화면 판독 점검. 구현 커밋 `6585cb8`(이벤트 관측값) / `a6dfbc5`(팝업·게이지칩·비례 번쩍임) / `fbbc553`(AI 로그). 코드 변경 여부는 실제 화면 확인 뒤에만 판단한다.
+- **Codex S3 Task 2 준비:** 버전드 릴레이 프로토콜(Task 1)은 코드 커밋 `ffe121f`에 기록됐다. 다음은 host만 물리를 계산하고 guest는 더 최신 상태 스냅샷만 적용하는 `onlineBattle` coordinator다. STRIKE 가시화는 PM 재플레이 판정 대기 상태를 유지한다.
 
 ## 다음 작업 큐 (우선순위 순, 각 완료 기준 포함)
 1. **[PM 게이트] STRIKE 가시화 재플레이 판정** — PM이 `npm run dev`로 STRIKE 세트 완성 타격이 "확 깎인다"로 읽히는지 확인. 과하거나 부족하면 튜닝값(`src/render/effects.ts`의 SPIN_LOSS_REFERENCE=6, 드레인/rate, 팝업 상한·폰트 범위) 조정. PM 부재면 큐로 두고 아래 항목 먼저.
-2. **S3 실시간 PvP 넷코드** — WebSocket 릴레이 서버 + 호스트 권위 동기화 + 방 코드 6자리. 완료 기준: 브라우저 2탭이 실제로 붙어 한 판 종료까지. 킬 스위치 8/2 23:00(그때까지 안 붙으면 로컬 2인 대전으로 강등). **결정론 계층(src/game)을 흔들지 말 것** — 입력만 주고받고 물리는 호스트가 단독 계산.
+2. **S3 실시간 PvP 넷코드** — Task 1(버전드 프로토콜, `ffe121f`) 다음으로 Task 2(host-authoritative coordinator) → Task 3(Durable Object relay) → Task 4~5(클라이언트·로비). 완료 기준: 브라우저 2탭이 실제로 붙어 한 판 종료까지. 킬 스위치 8/2 23:00(그때까지 안 붙으면 로컬 2인 대전으로 강등). **결정론 계층(src/game)을 흔들지 말 것** — 입력만 주고받고 물리는 host가 단독 계산.
 3. **모바일 터치 조작** — 현재 키보드(방향키/Space)+클릭 기반이라 폰에서 막힌다. 가상 스틱/버튼 등으로 터치 조작 추가. 완료 기준: 폰 브라우저에서 런 진행 가능(심사자 폰 접속 대비, 계획서 V1).
 4. **제출물** — 게임 소개·실행 방법 PDF(#3), AI 활용 기술 PDF(#4), 30~60초 영상. 구간 S5(8/8~9).
 
@@ -27,3 +27,8 @@
 - 인계 사유: Claude 세션이 아닌 **월간 사용량 한도**에 도달했다. 자동 복귀 시각은 메시지에 없으므로 Codex가 시간 기준으로 종료를 예약할 근거가 없다.
 - Codex 확인: `npm run build`, `npm run smoke`, `npm run smoke:run`, `npm run smoke:tiers`, `npm run smoke:reroll`를 2026-07-27에 재실행했다. 각 결과는 콘솔 측정값이며, 사람 플레이·화면 판독은 별도다.
 - 다음 담당에게: 화면 검토 결과와 사용자 재플레이 의견을 이 절 위에 추가한다. Claude가 다시 사용 가능해지면 이 문서의 현재 담당·복귀 시각을 Claude가 갱신한 뒤 바통을 가져간다.
+
+### 2026-07-27 — Codex S3 Task 1
+- red 관측: `npm run smoke:pvp-protocol`이 `src/net/protocol.ts` 부재로 `UNRESOLVED_IMPORT`을 냈다.
+- 코드: `ffe121f` — 버전 1 릴레이 프로토콜과 6개 parser case 스모크. 이후 `smoke:pvp-protocol` 6/6, `npm run build` 종료 코드 0, `smoke:run` 동일 시드 8/8(2026-07-27 콘솔 측정).
+- 다음: Task 2 `onlineBattle` coordinator. 로컬 Worker/배포는 아직 없고, 외부 두 기기 연결도 미관측이다.
