@@ -59,6 +59,17 @@ function stripTrailingSlash(url: string): string {
   return url.replace(/\/+$/, '');
 }
 
+/**
+ * 공개 endpoint가 배포 전이면 Pages에서 연결을 열지 않는다. https 페이지가 ws:// 로
+ * 연결하면 mixed-content로 막히므로, local 개발 host에서만 로컬 relay를 기본값으로 둔다.
+ */
+export function resolveRelayUrl(configuredUrl: string | undefined, hostname: string | undefined): string | null {
+  const configured = configuredUrl?.trim();
+  if (configured) return stripTrailingSlash(configured);
+  if (hostname === 'localhost' || hostname === '127.0.0.1') return 'ws://127.0.0.1:8787';
+  return null;
+}
+
 function encode(message: RelayClientMessage): string {
   return JSON.stringify(message);
 }

@@ -10,6 +10,7 @@
 import { createBattleState, DEFAULT_BOT_DEFINITION, DEFAULT_PLAYER_DEFINITION } from '../src/game/battleState';
 import {
   createOnlineClient,
+  resolveRelayUrl,
   type OnlineClientEvents,
   type WebSocketLike,
 } from '../src/net/onlineClient';
@@ -151,7 +152,11 @@ function main(): void {
   client.close();
   expect(sockets[1].closeCalls === 1, 'close must close the active socket');
 
-  console.log('Browser online client cases: 12/12 observed');
+  expect(resolveRelayUrl('', 'localhost') === 'ws://127.0.0.1:8787', 'localhost must default to the local relay');
+  expect(resolveRelayUrl(undefined, 'trynlog.github.io') === null, 'public Pages without relay URL must remain unavailable');
+  expect(resolveRelayUrl('wss://relay.example///', 'trynlog.github.io') === 'wss://relay.example', 'configured relay URL must trim trailing slashes');
+
+  console.log('Browser online client cases: 15/15 observed');
 }
 
 main();
