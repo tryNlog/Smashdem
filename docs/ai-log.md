@@ -1271,3 +1271,31 @@ Cloudflare 런타임에 닿기 전에 방의 정원(2명), host/guest 권한, �
 ### 미해결 / 다음 인계
 1. Durable Object adapter는 아직 없다. Worker가 socket attachment를 role/loadout으로 복원하고 router에 연결해야 한다.
 2. 방 코드 생성 충돌·TTL·재접속은 아직 정의되지 않았다. 6자리 코드와 2명 정원만 확정되어 있으며, TTL/재접속 수치는 `[UNSUPPORTED]`이다.
+---
+
+## S3 실시간 PvP — Durable Object room relay + local two-socket smoke (Codex Task 3b)
+
+**날짜:** 2026-07-27
+**담당:** Codex
+**근거:** Cloudflare는 다중 WebSocket 연결을 한 coordinator로 묶는 용도로 Durable Objects를 제시한다. [Cloudflare Workers WebSockets](https://developers.cloudflare.com/workers/runtime-apis/websockets/), [Durable Object WebSockets](https://developers.cloudflare.com/durable-objects/best-practices/websockets/). 프로젝트 제약은 방 코드·호스트 권위·킬 스위치(`../../00_허브.md:32,43,48-49`).
+
+### 목표
+정적 GitHub Pages 밖에서 방 코드별 두 WebSocket을 중계하되, relay가 물리·승패를 계산하지 않게 한다. host는 state를 보내고 guest는 input만 보낸다.
+
+### 실제 작업
+- `wrangler@4.114.0`을 개발 의존성으로 설치했다. 설치 출력: 감사 대상 54개, 취약점 보고 0건(2026-07-27). 이 값은 외부 패키지 감사 결과일 뿐 게임 품질 판정은 아니다.
+- `relay/src/endpoint.ts`: `/create`→생성, `/room/<code>`→입장 외 경로를 막는다. 실패 스모크 후 5개 사례 관측.
+- `relay/src/index.ts` + `relay/wrangler.jsonc`: 방마다 Durable Object 1개, `ctx.acceptWebSocket`·attachment 복원, host state/guest input 역할 분리를 router에 연결한다. 물리는 import하지 않는다.
+- hibernation 재기동 시 `match-start`를 다시 보내지 않도록 router `restorePeer`를 추가했다. red는 `restorePeer is not a function`, 이후 router 스모크 9/9 관측.
+- `tools/relayLocal.mjs`: 실행 중 `wrangler dev` relay에 Node WebSocket 2개를 연결했다. create→join→match-start 양쪽 수신→guest input→host state→host leave 순서 6개 사례를 관측했다.
+
+### 실행 관측
+- `npm run smoke:relay-endpoint` 5/5.
+- `npm run smoke:pvp-relay` 9/9.
+- `npm run smoke:relay-local` 6/6 (로컬 `127.0.0.1:8787` relay 필요).
+- `npm run build` 종료 코드 0, `smoke:pvp-protocol` 6/6, `smoke:online-battle` 6/6, `smoke:run` 동일 시드 8/8 (2026-07-27).
+
+### 미해결 / 다음 인계
+1. **공개 Worker 배포 미수행.** Cloudflare 계정 로그인·`npm run relay:deploy`·공개 `wss://...` URL은 PM 작업이다. API 토큰·계정 정보는 리포에 기록하지 않는다.
+2. **실제 게임 화면 미연결.** 다음 Task 4는 browser WebSocket client, Task 5는 출전 선택→방 생성/입력→onlineBattle 전환이다.
+3. 방 코드 충돌·TTL·재접속·host 이탈 후 권위 이전은 아직 없다. 충돌 확률/TTL 수치와 권위 이전 정책은 `[UNSUPPORTED]`; 현재 host 이탈은 guest에게 `opponent-left`만 보낸다.

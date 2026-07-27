@@ -6,3 +6,4 @@ dist-tools
 
 relay/.wrangler/
 relay/*.wrangler*.log
+relay/wrangler*.log
