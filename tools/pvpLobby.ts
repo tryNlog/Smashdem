@@ -29,7 +29,13 @@ function main(): void {
   expect(session.screen === 'pvpSelect', 'lobby back action must return to entry selection');
   expect(session.selectedPvpEntry === null, 'lobby back action must clear the selected entry');
 
-  console.log('PvP lobby session cases: 6/6 observed');
+  session.activate('pvp:entry:preset:attack');
+  session.enterOnlineBattle();
+  expect(session.screen === 'onlineBattle', 'match-start handoff must enter the isolated online battle screen');
+  session.returnToPvpLobby();
+  expect(session.screen === 'pvpLobby', 'online battle leave must preserve the selected entry in the lobby');
+
+  console.log('PvP lobby session cases: 8/8 observed');
 }
 
 main();

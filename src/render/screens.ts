@@ -125,6 +125,9 @@ function pvpLobbyButtons(canvas: HTMLCanvasElement): UiButton[] {
     { id: 'pvp:back', x: canvas.width / 2 - 100, y: 502, w: 200, h: 42 },
   ];
 }
+function onlineBattleButtons(canvas: HTMLCanvasElement): UiButton[] {
+  return [{ id: 'pvp:leave', x: canvas.width / 2 - 74, y: 588, w: 148, h: 26 }];
+}
 /** 배틀 화면에 상시 노출되는 [온라인 대전] 버튼(§1-3 "언제든"). */
 function battleButtons(canvas: HTMLCanvasElement): UiButton[] {
   return [{ id: 'battle:pvp', x: canvas.width / 2 - 74, y: 588, w: 148, h: 26 }];
@@ -142,6 +145,8 @@ function buttonsFor(canvas: HTMLCanvasElement, session: Session): UiButton[] {
       return pvpButtons(canvas, session);
     case 'pvpLobby':
       return pvpLobbyButtons(canvas);
+    case 'onlineBattle':
+      return onlineBattleButtons(canvas);
     case 'battle':
       return battleButtons(canvas);
   }
@@ -179,6 +184,9 @@ export function drawSessionOverlay(context: CanvasRenderingContext2D, canvas: HT
       break;
     case 'pvpLobby':
       drawPvpLobbyScreen(context, canvas, session);
+      break;
+    case 'onlineBattle':
+      drawOnlineBattleControls(context, canvas);
       break;
     case 'battle':
       // 배틀 중에도 세트 진행을 볼 수 있게 좌측(플레이어 상태 패널 아래, 아레나 왼쪽 빈 공간)에 얹는다.
@@ -710,6 +718,18 @@ function drawPvpEntryCard(
   context.fillText(`sta ${s.stamina}  ctl ${s.control}`, button.x + 12, button.y + 84);
 }
 
+function drawOnlineBattleControls(context: CanvasRenderingContext2D, canvas: HTMLCanvasElement): void {
+  const button = onlineBattleButtons(canvas)[0];
+  if (button) drawButton(context, button, '대전 나가기', { fill: 'rgba(72, 42, 53, 0.9)', border: '#b9798b', fontSize: 13 });
+
+  context.save();
+  context.fillStyle = '#d9e6ff';
+  context.font = '600 13px "Segoe UI", "Malgun Gothic", sans-serif';
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  context.fillText('온라인 대전 · host 권위 동기화', canvas.width / 2, 24);
+  context.restore();
+}
 function drawBattlePvpButton(context: CanvasRenderingContext2D, canvas: HTMLCanvasElement): void {
   const button = battleButtons(canvas)[0];
   if (button) drawButton(context, button, '온라인 대전', { fill: 'rgba(38,48,74,0.9)', border: '#4a5678', fontSize: 13 });

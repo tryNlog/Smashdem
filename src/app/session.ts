@@ -38,7 +38,7 @@ import type { PvpLoadout } from '../net/protocol';
 export const PLAYER_INDEX = 0;
 export const BOT_INDEX = 1;
 
-export type SessionScreen = 'battle' | 'reward' | 'runResult' | 'pvpSelect' | 'pvpLobby';
+export type SessionScreen = 'battle' | 'reward' | 'runResult' | 'pvpSelect' | 'pvpLobby' | 'onlineBattle';
 
 /** 완주/패배 후 저장 질의 단계. 승리일 때만 'pending' 으로 시작한다(§13-2). */
 export type SavePhase = 'pending' | 'done';
@@ -68,6 +68,10 @@ export interface Session {
   readonly pvpMessage: string | null;
   /** WebSocket 바깥 계층(main)이 connection 상태를 Canvas에 전달한다. */
   setPvpMessage(message: string | null): void;
+  /** match-start 뒤 main의 host-authoritative 전투 렌더로 넘긴다. */
+  enterOnlineBattle(): void;
+  /** 상대 이탈·나가기 뒤 선택한 출전 팽이를 보존한 대기실로 돌아간다. */
+  returnToPvpLobby(): void;
 
   /** 배틀 화면일 때만 한 스텝 전진. 다른 화면에서는 시뮬을 멈춘다. */
   step(playerInput: InputCommand, deltaSeconds: number): void;
@@ -201,6 +205,16 @@ export function createSession(seedSource: () => number, options: SessionOptions 
     screen = 'pvpSelect';
   }
 
+  function enterOnlineBattle(): void {
+    if (!selectedPvpEntry) return;
+    pvpMessage = null;
+    screen = 'onlineBattle';
+  }
+
+  function returnToPvpLobby(): void {
+    screen = selectedPvpEntry ? 'pvpLobby' : 'pvpSelect';
+  }
+
   function selectPvpEntry(entryId: string): void {
     const entry = pvpEntries.find((candidate) => candidate.id === entryId);
     if (!entry) return;
@@ -239,6 +253,12 @@ export function createSession(seedSource: () => number, options: SessionOptions 
     },
     setPvpMessage(message: string | null): void {
       pvpMessage = message;
+    },
+    enterOnlineBattle(): void {
+      enterOnlineBattle();
+    },
+    returnToPvpLobby(): void {
+      returnToPvpLobby();
     },
 
     step(playerInput: InputCommand, deltaSeconds: number): void {
@@ -287,6 +307,9 @@ export function createSession(seedSource: () => number, options: SessionOptions 
           return;
         case 'pvp:create':
         case 'pvp:join':
+          return;
+        case 'pvp:leave':
+          returnToPvpLobby();
           return;
         case 'pvp:back':
           if (screen === 'pvpLobby') closePvpLobby();
