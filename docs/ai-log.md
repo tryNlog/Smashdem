@@ -1379,3 +1379,25 @@ Canvas 대기실을 실제 `OnlineClient`/`OnlineMatch`와 연결하되, 런의 
 1. 자동 브라우저 검토는 Codex 내장 browser 초기화가 `Cannot redefine property: process`로 중단돼 수행하지 못했다. 이는 게임 console 오류의 관측이 아니다. 실제 화면·두 탭 동작은 별도 사람 브라우저로 확인 필요.
 2. 공개 Cloudflare Worker URL이 없다. GitHub Pages에서는 `VITE_RELAY_URL` 미설정 시 온라인 연결이 차단된 상태로 문구만 보인다. PM Cloudflare 계정에서 deploy 후 Pages build에 public `wss://` URL을 주입해야 한다.
 3. room code collision/TTL/reconnect/host authority transfer는 아직 없다. `[UNSUPPORTED]` 운영 정책·수치는 NAN 범위 밖이며 host 이탈은 대기실 복귀만 한다.
+---
+
+## S3 실시간 PvP — default WebSocket to local relay smoke
+
+**날짜:** 2026-07-27
+**담당:** Codex
+**근거:** `src/net/onlineClient.ts` default `new WebSocket(url)`, `src/app/onlineMatch.ts`, local Durable Object relay(`relay/src/index.ts`).
+
+### 목표
+가짜 socket만 쓴 unit smoke와 별개로, 기본 `OnlineClient`가 실제 로컬 relay에 연결되어 방 생성부터 guest snapshot 수신·상대 이탈까지 통과하는지 관측한다.
+
+### 실제 작업
+- `tools/onlineMatchRelay.ts`에 host/guest `OnlineMatch` 두 개를 만들고 default WebSocket factory를 그대로 사용했다.
+- host create→6자리 코드 수신→guest join→양쪽 match-start→host 3 fixed tick→guest tick 3 snapshot→guest close→host opponent-left 순서를 대기 조건으로 검사했다.
+- Node 22에서 `typeof WebSocket`은 `function`으로 관측됐다. 이 도구 파일의 `Date.now`/`setTimeout`은 `src/game` 밖의 네트워크 테스트에서만 쓴다.
+
+### 실행 관측
+- `npm run smoke:online-match-relay` → `Online match relay cases: 6/6 observed` (2026-07-27, 로컬 relay `127.0.0.1:8787` 필요).
+
+### 미해결 / 다음 인계
+1. 이 스모크는 Node WebSocket이며 Canvas의 pointer/keyboard/room input 배치는 확인하지 않는다. 사람 브라우저 두 탭의 UI·조작 검증은 잔존한다.
+2. 공개 Cloudflare Worker 및 GitHub Pages `wss://` 연결은 미설정이다.

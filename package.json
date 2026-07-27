@@ -17,6 +17,7 @@
     "smoke:pvp-lobby": "vite build --ssr tools/pvpLobby.ts --outDir dist-tools --logLevel warn && node dist-tools/pvpLobby.js",
     "smoke:online-battle": "vite build --ssr tools/onlineBattle.ts --outDir dist-tools --logLevel warn && node dist-tools/onlineBattle.js",
     "smoke:online-match": "vite build --ssr tools/onlineMatch.ts --outDir dist-tools --logLevel warn && node dist-tools/onlineMatch.js",
+    "smoke:online-match-relay": "vite build --ssr tools/onlineMatchRelay.ts --outDir dist-tools --logLevel warn && node dist-tools/onlineMatchRelay.js",
     "smoke:pvp-relay": "vite build --ssr tools/pvpRelay.ts --outDir dist-tools --logLevel warn && node dist-tools/pvpRelay.js",
     "smoke:relay-endpoint": "vite build --ssr tools/relayEndpoint.ts --outDir dist-tools --logLevel warn && node dist-tools/relayEndpoint.js",
     "relay:dev": "wrangler dev --config relay/wrangler.jsonc",

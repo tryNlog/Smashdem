@@ -6,8 +6,8 @@
 - **현재 담당:** Codex (Claude의 월간 사용량 한도로 인계받음)
 - **Claude 제한 해제 예정 시각:** `[UNSUPPORTED]` — 마지막 메시지는 "monthly spend limit"만 표시했고, 복귀 시각을 제공하지 않았다. 다음 Claude 제한 메시지에 시각이 있으면 이 줄에 기록한다.
 - **Codex 복귀 가능 시각:** 현재 세션에서 인계 시 기입.
-- **브랜치:** s2-run (S3 Task 5b main/input/online handoff 작성됨, 커밋 직전; Task 5a `1ab6804`; Task 4 `f477625`; Task 3b `7c501d2`). remote 있음, **push 금지**.
-- **트리:** Task 5b 코드·로그·바통 기록을 같은 컴파일 조각으로 커밋 예정 (Codex 확인: 2026-07-27).
+- **브랜치:** s2-run (S3 Task 5b + real local WebSocket smoke 작성됨, 커밋 직전; Task 5b `8242067`; Task 5a `1ab6804`; Task 4 `f477625`). remote 있음, **push 금지**.
+- **트리:** real local WebSocket smoke·로그·바통 기록을 같은 컴파일 조각으로 커밋 예정 (Codex 확인: 2026-07-27).
 
 ## 진행 중 작업
 - **Codex S3 Task 5b 작성됨, 커밋 직전:** main 고정 틱·native 6자리 input·host/guest OnlineMatch handoff를 추가했다. 다음은 로컬 사람 브라우저 2탭→PM 공개 Worker/Pages endpoint 배선이다.
@@ -60,3 +60,7 @@
 - 회귀 관측: online match 11/11, online client 15/15, lobby 8/8, run 동일 시드 8/8, local relay 6/6 (2026-07-27).
 - 현재 제한: Codex 내장 browser 초기화가 `Cannot redefine property: process`로 중단돼 실제 Canvas/2탭 UI는 아직 미관측이다. 로컬 relay는 127.0.0.1:8787, Vite는 127.0.0.1:5173에서 listener를 관측했다.
 - 다음: 사람이 로컬 두 탭에서 create→code→join→움직임→finish→leave를 확인한다. 이후 PM Cloudflare Worker deploy와 Pages의 public `VITE_RELAY_URL` build를 수행한다.
+### 2026-07-27 — Codex S3 local WebSocket smoke
+- 코드: `tools/onlineMatchRelay.ts`와 npm script를 추가했다. Node 22 표준 WebSocket이 기본 OnlineClient 경로를 사용해 local Durable Object relay에 host/guest로 붙는다.
+- 관측: create→6자리 code→양쪽 match-start→host tick 3 snapshot→guest tick 3→guest close→host opponent-left까지 `smoke:online-match-relay` 6/6. 기존 `smoke:relay-local`은 relay router 직접 경계, 이 스모크는 app/client 경계다.
+- 다음: 여전히 사람 브라우저 Canvas 2탭 확인과 PM public Cloudflare Worker/Pages URL 주입이 필요하다. Codex browser 초기화 제한은 Task 5b 기록을 참조한다.
