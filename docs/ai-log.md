@@ -1244,3 +1244,30 @@ host만 `stepBattle`을 호출하고 guest는 host의 더 최신 `BattleState`�
 1. 현재 coordinator는 socket이 없다. 다음 Task 3 relay가 guest input을 host로, host snapshot을 guest로 전달해야 한다.
 2. guest가 snapshot event를 한 번만 이펙트로 소비하도록 `main.ts` 통합 시 tick 증가 여부를 사용해야 한다. 아직 화면 경로는 기존 bot session 그대로다.
 3. host 탭이 백그라운드면 `requestAnimationFrame`이 늦어질 수 있다(`src/engine/fixedTimestep.ts:46-59`). 두 탭 실제 시험에서 host 창 포커스 조건을 기록한다.
+---
+
+## S3 실시간 PvP — role-filtered room router (Codex Task 3a)
+
+**날짜:** 2026-07-27
+**담당:** Codex
+**근거:** `docs/superpowers/plans/2026-07-27-realtime-pvp.md` Task 3, 방 코드 직접 접속·티어 매칭 제외(`../../02_게임설계.md:1204-1210`).
+
+### 목표
+Cloudflare 런타임에 닿기 전에 방의 정원(2명), host/guest 권한, 상대 이탈 통지를 순수 코드로 고정한다.
+
+### 실제 작업
+- 실패 스모크 `tools/pvpRelay.ts`를 먼저 작성했다. 구현 전에는 `../relay/src/router`을 찾지 못해 빌드가 중단됐다.
+- `relay/src/router.ts`는 전송 함수만 받고 Worker·WebSocket API를 import하지 않는다.
+  - host+guest가 붙을 때 같은 `match-start(seed, loadouts)`를 각자에게 전달한다.
+  - guest `input`만 host에 `remote-input`으로 포워드한다.
+  - host `state`만 guest에 포워드한다. 반대 역할 메시지는 `role-forbidden`.
+  - 세 번째 guest는 `room-full`; detach는 남은 상대에게 `opponent-left`.
+
+### 실행 관측
+- red: `npm run smoke:pvp-relay` → `UNRESOLVED_IMPORT ../relay/src/router`.
+- green: `PvP room router cases: 8/8 observed`.
+- 회귀: `npm run build` 종료 코드 0, `smoke:pvp-protocol` 6/6, `smoke:online-battle` 6/6 (2026-07-27).
+
+### 미해결 / 다음 인계
+1. Durable Object adapter는 아직 없다. Worker가 socket attachment를 role/loadout으로 복원하고 router에 연결해야 한다.
+2. 방 코드 생성 충돌·TTL·재접속은 아직 정의되지 않았다. 6자리 코드와 2명 정원만 확정되어 있으며, TTL/재접속 수치는 `[UNSUPPORTED]`이다.
