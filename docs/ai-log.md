@@ -1299,3 +1299,30 @@ Cloudflare 런타임에 닿기 전에 방의 정원(2명), host/guest 권한, �
 1. **공개 Worker 배포 미수행.** Cloudflare 계정 로그인·`npm run relay:deploy`·공개 `wss://...` URL은 PM 작업이다. API 토큰·계정 정보는 리포에 기록하지 않는다.
 2. **실제 게임 화면 미연결.** 다음 Task 4는 browser WebSocket client, Task 5는 출전 선택→방 생성/입력→onlineBattle 전환이다.
 3. 방 코드 충돌·TTL·재접속·host 이탈 후 권위 이전은 아직 없다. 충돌 확률/TTL 수치와 권위 이전 정책은 `[UNSUPPORTED]`; 현재 host 이탈은 guest에게 `opponent-left`만 보낸다.
+---
+
+## S3 실시간 PvP — browser WebSocket client (Codex Task 4)
+
+**날짜:** 2026-07-27
+**담당:** Codex
+**근거:** `docs/superpowers/plans/2026-07-27-realtime-pvp.md` Task 4, protocol parser(`src/net/protocol.ts`)와 host-authoritative coordinator(`src/app/onlineBattle.ts`).
+
+### 목표
+브라우저 소켓 수명과 relay JSON 전송을 결정론 물리에서 분리한다. 방 생성·참가·역할별 frame 전송과 서버 frame callback을 실제 브라우저 없이 반복 가능한 테스트로 고정한다.
+
+### 실제 작업
+- `tools/onlineClient.ts`를 구현 전에 먼저 작성했다. 첫 실행은 `../src/net/onlineClient` 부재로 `UNRESOLVED_IMPORT`을 냈다.
+- `src/net/onlineClient.ts`에 소켓 factory 주입 경계와 `createRoom`/`joinRoom`/guest input/host snapshot/close를 추가했다.
+- 생성·참가 frame은 socket open 뒤에만 전송한다. host state는 `room-created`로 host 역할을 확인한 뒤에만, guest input은 join 경로에서만 보낸다.
+- 서버 frame은 `parseRelayServerMessage`로 파싱 뒤 callback에 전달한다. 형식 오류는 `onStatus('error', 'invalid-message')`로만 보고하고 전투 상태를 바꾸지 않는다.
+
+### 실행 관측
+- red: `npx vite build --ssr tools/onlineClient.ts --outDir dist-tools --logLevel warn` → `UNRESOLVED_IMPORT ../src/net/onlineClient`.
+- green: `npm run smoke:online-client` → `Browser online client cases: 12/12 observed`.
+- 처음 전체 build는 FakeSocket 수신 타입 불일치(`string` vs `unknown`)로 TypeScript 오류를 냈다. 테스트 더블을 인터페이스와 같은 `unknown`으로 수정했다.
+- 수정 후: `npm run build` 종료 코드 0, `smoke:pvp-protocol` 6/6, `smoke:online-battle` 6/6, `smoke:run` 동일 시드 8/8 (2026-07-27 콘솔 관측).
+
+### 미해결 / 다음 인계
+1. 이 조각은 injected FakeSocket으로만 시험했다. 실제 브라우저와 공개 Worker 접속은 아직 관측하지 않았다.
+2. `main.ts`/Canvas는 아직 기존 bot session을 렌더한다. 다음 Task 5에서 방 생성·코드 입력·match-start→`createOnlineBattle`을 연결해야 한다.
+3. GitHub Pages에서는 `wss://` Worker URL이 필요하다. 현재 공개 Cloudflare Worker URL은 PM 계정 작업으로 미설정이다.

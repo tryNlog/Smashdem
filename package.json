@@ -13,6 +13,7 @@
     "smoke:mirror": "vite build --ssr tools/botMirror.ts --outDir dist-tools --logLevel warn && node dist-tools/botMirror.js",
     "smoke:reroll": "vite build --ssr tools/rerollFlow.ts --outDir dist-tools --logLevel warn && node dist-tools/rerollFlow.js",
     "smoke:pvp-protocol": "vite build --ssr tools/pvpProtocol.ts --outDir dist-tools --logLevel warn && node dist-tools/pvpProtocol.js",
+    "smoke:online-client": "vite build --ssr tools/onlineClient.ts --outDir dist-tools --logLevel warn && node dist-tools/onlineClient.js",
     "smoke:online-battle": "vite build --ssr tools/onlineBattle.ts --outDir dist-tools --logLevel warn && node dist-tools/onlineBattle.js",
     "smoke:pvp-relay": "vite build --ssr tools/pvpRelay.ts --outDir dist-tools --logLevel warn && node dist-tools/pvpRelay.js",
     "smoke:relay-endpoint": "vite build --ssr tools/relayEndpoint.ts --outDir dist-tools --logLevel warn && node dist-tools/relayEndpoint.js",
