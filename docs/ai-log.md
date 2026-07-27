@@ -1446,7 +1446,7 @@ GitHub Pages의 public build가 PM이 등록한 `VITE_RELAY_URL`을 받아 `wss:
 - `index.html`은 canvas 아래에 108px 이동 영역과 burst button을 두며, `src/main.ts`은 keyboard/touch command를 합산하고 화면 전환마다 `setEnabled`를 갱신한다.
 
 ### 실행 관측
-- `npm run smoke:touch-input` → `Touch input cases: 8/8 observed` (2026-07-27).
+- `npm run smoke:touch-input` → `Touch input cases: 13/13 observed` (2026-07-27).
 - `npm run build` → 종료 코드 0 (2026-07-27).
 - `npm run smoke:online-client` 15/15, `npm run smoke:pvp-lobby` 8/8, `npm run smoke:online-match` 11/11 (2026-07-27).
 

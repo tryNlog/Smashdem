@@ -101,7 +101,7 @@ function main(): void {
   );
   expect(merged.moveX === 0 && merged.moveY === 1 && merged.burst, 'keyboard and touch commands must merge without exceeding axis bounds');
 
-  console.log('Touch input cases: 8/8 observed');
+  console.log('Touch input cases: 13/13 observed');
 }
 
 main();
