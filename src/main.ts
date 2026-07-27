@@ -13,6 +13,7 @@
 import { startFixedTimestepLoop } from './engine/fixedTimestep';
 import * as Balance from './game/balance';
 import { createKeyboardInputSource } from './game/playerInput';
+import { createTouchInputSource, mergePlayerInputs, shouldShowTouchControls } from './app/touchInput';
 import { buildSetSummary, enhanceTotal, tierForBattle, type RunBuild } from './game/run';
 import { createSession, PLAYER_INDEX, type PvpEntryView } from './app/session';
 import { createOnlineMatch, type OnlineMatchStatus } from './app/onlineMatch';
@@ -49,6 +50,25 @@ function bootstrap(): void {
     throw new Error('#room-code-input 을 찾지 못했습니다.');
   }
   const roomCodeInput: HTMLInputElement = roomCodeInputElement;
+  const touchControlsElement = document.getElementById('touch-controls');
+  const touchMoveZoneElement = document.getElementById('touch-move-zone');
+  const touchMoveKnobElement = document.getElementById('touch-move-knob');
+  const touchBurstElement = document.getElementById('touch-burst');
+  if (
+    !(touchControlsElement instanceof HTMLElement) ||
+    !(touchMoveZoneElement instanceof HTMLElement) ||
+    !(touchMoveKnobElement instanceof HTMLElement) ||
+    !(touchBurstElement instanceof HTMLButtonElement)
+  ) {
+    throw new Error('터치 조작 요소를 찾지 못했습니다.');
+  }
+  const touchControls = touchControlsElement;
+  const touchInput = createTouchInputSource({
+    moveZone: touchMoveZoneElement,
+    moveKnob: touchMoveKnobElement,
+    burstButton: touchBurstElement,
+  });
+  const hasCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
 
   const relayUrl = resolveRelayUrl(import.meta.env.VITE_RELAY_URL, window.location.hostname);
   const onlineMatch = createOnlineMatch({
@@ -60,10 +80,10 @@ function bootstrap(): void {
       onStatus(status, detail) {
         if (status === 'started' && onlineMatch.battle) {
           session.enterOnlineBattle();
-          syncRoomCodeInput();
+          syncInputOverlays();
         } else if ((status === 'opponent-left' || status === 'closed') && session.screen === 'onlineBattle') {
           session.returnToPvpLobby();
-          syncRoomCodeInput();
+          syncInputOverlays();
         }
         session.setPvpMessage(onlineStatusText(status, detail));
       },
@@ -97,6 +117,13 @@ function bootstrap(): void {
     const visible = session.screen === 'pvpLobby';
     roomCodeInput.hidden = !visible;
     if (!visible) roomCodeInput.blur();
+  }
+
+  function syncInputOverlays(): void {
+    syncRoomCodeInput();
+    const touchVisible = shouldShowTouchControls(hasCoarsePointer, session.screen);
+    touchControls.hidden = !touchVisible;
+    touchInput.setEnabled(touchVisible);
   }
 
   function beginCreateRoom(): void {
@@ -134,7 +161,7 @@ function bootstrap(): void {
     session.activate(id);
     if (id === 'pvp:create') beginCreateRoom();
     else if (id === 'pvp:join') beginJoinRoom();
-    syncRoomCodeInput();
+    syncInputOverlays();
   }
 
   roomCodeInput.addEventListener('input', () => {
@@ -150,7 +177,7 @@ function bootstrap(): void {
       activateSession('pvp:back');
     }
   });
-  syncRoomCodeInput();
+  syncInputOverlays();
 
   // 배틀↔메타 화면 전환 감지(전환 시 연출 잔상 정리).
   let previousScreen = session.screen;
@@ -210,7 +237,7 @@ function bootstrap(): void {
     maximumStepsPerFrame: Balance.MAXIMUM_STEPS_PER_FRAME,
 
     update(fixedDeltaSeconds) {
-      const playerInput = keyboard.consumeCommand();
+      const playerInput = mergePlayerInputs(keyboard.consumeCommand(), touchInput.consumeCommand());
       const wasRunBattle = session.screen === 'battle';
       const onlineBattleActive = session.screen === 'onlineBattle' && onlineMatch.battle !== null;
 
@@ -254,6 +281,7 @@ function bootstrap(): void {
           battleFinishHandled = false;
         }
         previousScreen = session.screen;
+        syncInputOverlays();
       }
     },
 

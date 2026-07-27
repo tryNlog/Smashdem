@@ -7,7 +7,7 @@
  * and hiding controls clears held movement.
  */
 
-import { createTouchInputSource, mergePlayerInputs } from '../src/app/touchInput';
+import { createTouchInputSource, mergePlayerInputs, shouldShowTouchControls } from '../src/app/touchInput';
 
 function expect(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);
@@ -68,6 +68,11 @@ function main(): void {
     moveKnob: moveKnob as unknown as HTMLElement,
     burstButton: burstButton as unknown as HTMLButtonElement,
   });
+
+  expect(shouldShowTouchControls(true, 'battle'), 'coarse battle screens must expose touch controls');
+  expect(shouldShowTouchControls(true, 'onlineBattle'), 'coarse online battle screens must expose touch controls');
+  expect(!shouldShowTouchControls(true, 'reward'), 'non-battle screens must hide touch controls');
+  expect(!shouldShowTouchControls(false, 'battle'), 'fine-pointer screens must hide touch controls');
 
   source.setEnabled(true);
   moveZone.emit('pointerdown', 7, 95, 5);

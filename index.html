@@ -33,6 +33,67 @@
         position: relative;
         width: min(960px, 100%);
       }
+      #touch-controls {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        align-items: center;
+        width: min(960px, 100%);
+        min-height: 124px;
+        box-sizing: border-box;
+        padding: 8px max(20px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+        touch-action: none;
+        user-select: none;
+      }
+      #touch-controls[hidden] {
+        display: none;
+      }
+      #touch-move-zone,
+      #touch-burst {
+        width: 108px;
+        height: 108px;
+        box-sizing: border-box;
+        border: 2px solid #4f5c83;
+        border-radius: 50%;
+        background: rgba(26, 34, 57, 0.94);
+        touch-action: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #touch-move-zone {
+        position: relative;
+        justify-self: start;
+        box-shadow: inset 0 0 0 18px rgba(8, 12, 22, 0.3);
+      }
+      #touch-move-knob {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 42px;
+        height: 42px;
+        margin: -21px;
+        border: 2px solid #9bd8ff;
+        border-radius: 50%;
+        box-sizing: border-box;
+        background: rgba(87, 151, 211, 0.68);
+        pointer-events: none;
+        transform: translate(0px, 0px);
+      }
+      #touch-burst {
+        justify-self: end;
+        color: #fff6c7;
+        border-color: #d69a43;
+        background: #6b3528;
+        font-size: 40px;
+        line-height: 1;
+      }
+      #touch-burst:active {
+        background: #9a4b31;
+        transform: scale(0.94);
+      }
+      @media (pointer: fine) {
+        #touch-controls {
+          display: none !important;
+        }
+      }
       canvas {
         display: block;
         width: 100%;
@@ -93,6 +154,12 @@
           placeholder="방 코드 6자리"
           hidden
         />
+      </div>
+      <div id="touch-controls" hidden>
+        <div id="touch-move-zone" aria-label="이동 조작">
+          <div id="touch-move-knob" aria-hidden="true"></div>
+        </div>
+        <button id="touch-burst" type="button" aria-label="버스트"><span aria-hidden="true">&#9889;</span></button>
       </div>
       <div class="help">
         상대를 밀어 회전력을 깎는 팽이 배틀 — <b>12판을 이기면 런 완주</b>. 승리마다 파츠 3택 1로 강해진다.<br />

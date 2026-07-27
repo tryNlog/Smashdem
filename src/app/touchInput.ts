@@ -29,6 +29,10 @@ function quantizeAxis(value: number): number {
   return value > 0 ? 1 : -1;
 }
 
+export function shouldShowTouchControls(hasCoarsePointer: boolean, screen: string): boolean {
+  return hasCoarsePointer && (screen === 'battle' || screen === 'onlineBattle');
+}
+
 export function mergePlayerInputs(keyboard: InputCommand, touch: InputCommand): InputCommand {
   return {
     moveX: clamp(keyboard.moveX + touch.moveX, -1, 1),
