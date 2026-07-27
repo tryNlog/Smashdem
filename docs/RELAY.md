@@ -6,8 +6,8 @@
 - **현재 담당:** Codex (Claude의 월간 사용량 한도로 인계받음)
 - **Claude 제한 해제 예정 시각:** `[UNSUPPORTED]` — 마지막 메시지는 "monthly spend limit"만 표시했고, 복귀 시각을 제공하지 않았다. 다음 Claude 제한 메시지에 시각이 있으면 이 줄에 기록한다.
 - **Codex 복귀 가능 시각:** 현재 세션에서 인계 시 기입.
-- **브랜치:** `s2-run`; 최신 로컬 커밋 `6f6cb92`은 모바일 입력 문서이며, source는 `7f8bf9f`·`40a85cd`에 있다. remote `origin`은 있고, **push 금지**.
-- **트리:** `6f6cb92`까지 로컬 커밋된 뒤 상태를 확인한다. remote push는 PM 전용이다.
+- **브랜치:** `s2-run`; 최신 기능 코드 커밋 `ce03cba`는 모바일 방향 래치이며, touch source/UI는 `7f8bf9f`·`40a85cd`에 있다. remote `origin`은 있고, **push 금지**.
+- **트리:** 작업 시작 전 `git log --oneline -5`·`git status`로 코드·문서 커밋을 함께 확인한다. remote push는 PM 전용이다.
 ## 진행 중 작업
 - **S3 공개 relay 배선:** `1ad9f62`에 GitHub Actions `VITE_RELAY_URL` 주입, direct Vite env access, local relay build smoke, PM Cloudflare/Pages 절차가 있다. 공개 Worker endpoint와 Canvas 두 브라우저 관찰은 PM 게이트다.
 - **PM 게이트:** Cloudflare 로그인·`npm run relay:deploy`·GitHub Actions 변수 등록·원격 push·공개 Worker/Canvas 두 브라우저 관찰은 PM 계정과 브라우저가 필요한 작업이다. PM 부재 시 모바일 조작·제출물 큐로 이동한다.
@@ -18,6 +18,12 @@
 4. **제출물** — 게임 소개·실행 방법 PDF(#3), AI 활용 기술 PDF(#4), 30~60초 영상. 구간 S5(8/8~9).
 
 ## 인계 로그 (append-only, 최신이 위)
+### 2026-07-27 — Codex mobile direction latch
+- PM 관찰: 모바일에서 빠른 방향 전환이 둔하게 느껴지고, 가상 스틱을 길게 유지할 때 미세한 손가락 이동이 입력을 흔든다.
+- 원인 추적: `src/app/touchInput.ts`의 기존 구현은 매 `pointermove`마다 22% dead zone 안이면 즉시 중립, 밖이면 축 부호를 즉시 갱신했다. `tools/touchInput.ts`에서 오른쪽 홀드 후 `(53, 59)` 드리프트가 중립이 되는 red 관측을 남겼다.
+- 코드: `ce03cba`는 최초 입력 22% 밖에서만 방향을 잡고, 잡힌 뒤에는 중심 대비 32% 이상 이동해야 새 방향으로 바꾼다. pointerup/cancel/비활성은 여전히 즉시 중립이다. 전투 물리·밸런스·`src/game/`은 수정하지 않았다.
+- 관측: `npm run smoke:touch-input` 17/17, `npm run build` 종료 코드 0, `npm run smoke:run` 동일 시드 8/8 (2026-07-27 콘솔).
+- 다음: PM이 공개 Pages에 `ce03cba`를 push한 뒤 모바일에서 오른쪽 홀드→미세 드리프트→반대/직각 드래그를 재시험한다. 실제 손가락 전환 감각은 `[UNSUPPORTED]`이며, 자동 smoke는 명령 변환만 다룬다.
 ### 2026-07-27 — Claude → (대기)
 - 한 것: GitHub Pages 배포(https://trynlog.github.io/Smashdem/), 게임명 Smashdem 전면 반영(README/DEPLOY/package.json 소문자/index.html 탭 제목), STRIKE 타격 회전력 감소 가시화(PD-4). 결정론 `smoke:run` 동일 시드 8/8 일치 재확인.
 - 멈춘 지점: §17 재플레이 前 구현 관문 종료, PM 재플레이 대기.

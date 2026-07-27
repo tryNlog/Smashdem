@@ -1454,3 +1454,27 @@ GitHub Pages의 public build가 PM이 등록한 `VITE_RELAY_URL`을 받아 `wss:
 1. 실제 Android/iOS에서 가상 스틱의 손가락 배치·safe-area·회전/resize·다중 터치 입력은 `[UNSUPPORTED]`이다. 사람 기기에서 런 진행으로 기록한다.
 2. Codex browser 초기화의 `Cannot redefine property: process`는 게임 Canvas 오류를 뜻하지 않는다. 이 환경에서는 visual browser automation으로 터치 배치를 관찰하지 못했다.
 3. Worker public relay와 Pages 두 브라우저 실증은 별도 PM 게이트다.
+---
+
+## S3 모바일 입력 방향 래치 (Codex)
+
+**날짜:** 2026-07-27  
+**담당:** Codex  
+**근거:** PM의 모바일 관찰: 빠른 방향 전환이 둔하고, 길게 누른 가상 스틱이 미세한 손가락 이동에 흔들림.
+
+### 목표
+터치 조작의 홀드 방향을 작은 드리프트로부터 분리하되, 반대·직각으로 의도적으로 드래그했을 때는 pointerup 없이 입력을 바꾼다. 결정론 시뮬레이션과 밸런스 상수는 범위 밖으로 둔다.
+
+### 원인 추적과 red 관측
+- 기존 `src/app/touchInput.ts`는 매 `pointermove`에서 중심 대비 거리가 22%보다 작으면 즉시 `(0, 0)`을, 그 밖이면 각 축 부호를 즉시 저장했다.
+- `tools/touchInput.ts`에 오른쪽 `(95, 50)` 홀드 뒤 중심 근처 `(53, 59)`로 이동하는 사례를 먼저 추가했다. 변경 전 `npm run smoke:touch-input`은 `small drift toward the stick center must retain the held direction` 오류로 종료 코드 1이었다.
+- 물리 입력 경로 `src/game/simulation.ts`는 입력 방향으로 가속도를 더하고 drag로만 감속한다. 이 작업은 해당 경로를 수정하지 않았다.
+
+### 코드와 관측
+- `src/app/touchInput.ts`에 최초 방향 잡기 22%와 잡힌 방향 전환 32%의 두 임계값을 뒀다. pointer가 활성인 동안 작은 중심 드리프트는 기존 방향을 유지하고, 32% 밖의 새 좌표만 8방향 축으로 재양자화한다. pointerup/cancel·비활성은 기존처럼 입력과 knob을 초기화한다.
+- `tools/touchInput.ts`는 드리프트 유지, 반대 방향 전환, 직각 방향 전환 사례를 더해 17개 assertion을 기록한다.
+- `npm run smoke:touch-input` → `Touch input cases: 17/17 observed`; `npm run build` → 종료 코드 0; `npm run smoke:run` → 동일 시드 8/8 일치 (2026-07-27 콘솔 측정).
+
+### 미해결 / 다음 인계
+1. 실제 모바일의 손가락 이동 거리·safe area·브라우저별 pointer event 빈도에서 22%/32%가 적절한지는 `[UNSUPPORTED]`이다. 공개 Pages에 `ce03cba`를 push한 뒤 사람 기기에서 오른쪽 홀드→미세 드리프트→반대/직각 전환을 확인한다.
+2. 테스트는 `InputCommand` 변환 경계만 다룬다. Canvas 배치·실제 타격 중 조작 감각은 자동 도구로 관측하지 못했다.

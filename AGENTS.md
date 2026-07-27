@@ -26,6 +26,7 @@ NHN NAN 2026 해커톤 사전과제. 로그라이크 팽이(탑블레이드) 배
 - 개발 서버: `npm run dev`
 - 빌드: `npm run build` (tsc --noEmit + vite build)
 - 결정론/밸런스 스모크: `npm run smoke:run`, `npm run smoke`, `npm run smoke:tiers`, `npm run smoke:mirror`, `npm run smoke:reroll`
+- 모바일 입력 스모크: `npm run smoke:touch-input`
 
 ## 5. 어디에 뭐가 있나
 - 소스: `src/game`(순수 시뮬·결정론), `src/render`(렌더·이펙트·오디오), `src/app`(세션 오케스트레이션), `tools`(헤드리스 측정 하버스트)
