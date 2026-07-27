@@ -6,15 +6,15 @@
 - **현재 담당:** Codex (Claude의 월간 사용량 한도로 인계받음)
 - **Claude 제한 해제 예정 시각:** `[UNSUPPORTED]` — 마지막 메시지는 "monthly spend limit"만 표시했고, 복귀 시각을 제공하지 않았다. 다음 Claude 제한 메시지에 시각이 있으면 이 줄에 기록한다.
 - **Codex 복귀 가능 시각:** 현재 세션에서 인계 시 기입.
-- **브랜치:** s2-run (S3 Task 1 코드 커밋 `ffe121f`). remote 있음, **push 금지**.
+- **브랜치:** s2-run (S3 Task 2 코드 커밋 `ab07a84`, Task 1 `ffe121f`). remote 있음, **push 금지**.
 - **트리:** docs 인계 기록 갱신 후 커밋 예정 (Codex 확인: 2026-07-27).
 
 ## 진행 중 작업
-- **Codex S3 Task 2 준비:** 버전드 릴레이 프로토콜(Task 1)은 코드 커밋 `ffe121f`에 기록됐다. 다음은 host만 물리를 계산하고 guest는 더 최신 상태 스냅샷만 적용하는 `onlineBattle` coordinator다. STRIKE 가시화는 PM 재플레이 판정 대기 상태를 유지한다.
+- **Codex S3 Task 3 준비:** host-authoritative coordinator(Task 2)은 코드 커밋 `ab07a84`에 기록됐다. 다음은 Worker Durable Object relay로 role별 메시지를 실제 전달하는 작업이다. STRIKE 가시화는 PM 재플레이 판정 대기 상태를 유지한다.
 
 ## 다음 작업 큐 (우선순위 순, 각 완료 기준 포함)
 1. **[PM 게이트] STRIKE 가시화 재플레이 판정** — PM이 `npm run dev`로 STRIKE 세트 완성 타격이 "확 깎인다"로 읽히는지 확인. 과하거나 부족하면 튜닝값(`src/render/effects.ts`의 SPIN_LOSS_REFERENCE=6, 드레인/rate, 팝업 상한·폰트 범위) 조정. PM 부재면 큐로 두고 아래 항목 먼저.
-2. **S3 실시간 PvP 넷코드** — Task 1(버전드 프로토콜, `ffe121f`) 다음으로 Task 2(host-authoritative coordinator) → Task 3(Durable Object relay) → Task 4~5(클라이언트·로비). 완료 기준: 브라우저 2탭이 실제로 붙어 한 판 종료까지. 킬 스위치 8/2 23:00(그때까지 안 붙으면 로컬 2인 대전으로 강등). **결정론 계층(src/game)을 흔들지 말 것** — 입력만 주고받고 물리는 host가 단독 계산.
+2. **S3 실시간 PvP 넷코드** — Task 1(버전드 프로토콜, `ffe121f`)·Task 2(host-authoritative coordinator, `ab07a84`) 다음으로 Task 3(Durable Object relay) → Task 4~5(클라이언트·로비). 완료 기준: 브라우저 2탭이 실제로 붙어 한 판 종료까지. 킬 스위치 8/2 23:00(그때까지 안 붙으면 로컬 2인 대전으로 강등). **결정론 계층(src/game)을 흔들지 말 것** — 입력만 주고받고 물리는 host가 단독 계산.
 3. **모바일 터치 조작** — 현재 키보드(방향키/Space)+클릭 기반이라 폰에서 막힌다. 가상 스틱/버튼 등으로 터치 조작 추가. 완료 기준: 폰 브라우저에서 런 진행 가능(심사자 폰 접속 대비, 계획서 V1).
 4. **제출물** — 게임 소개·실행 방법 PDF(#3), AI 활용 기술 PDF(#4), 30~60초 영상. 구간 S5(8/8~9).
 
@@ -32,3 +32,7 @@
 - red 관측: `npm run smoke:pvp-protocol`이 `src/net/protocol.ts` 부재로 `UNRESOLVED_IMPORT`을 냈다.
 - 코드: `ffe121f` — 버전 1 릴레이 프로토콜과 6개 parser case 스모크. 이후 `smoke:pvp-protocol` 6/6, `npm run build` 종료 코드 0, `smoke:run` 동일 시드 8/8(2026-07-27 콘솔 측정).
 - 다음: Task 2 `onlineBattle` coordinator. 로컬 Worker/배포는 아직 없고, 외부 두 기기 연결도 미관측이다.
+### 2026-07-27 — Codex S3 Task 2
+- red 관측: `npm run smoke:online-battle`이 `src/app/onlineBattle.ts` 부재로 `UNRESOLVED_IMPORT`을 냈다.
+- 코드: `ab07a84` — host만 60Hz `stepBattle`을 호출하고 guest는 새 스냅샷만 수신하는 coordinator. 스모크 6/6, build 종료 코드 0, `smoke:run` 동일 시드 8/8(2026-07-27 콘솔 측정).
+- 다음: Task 3 Worker Durable Object relay. socket·로비·실제 두 탭 접속은 아직 미관측이다.

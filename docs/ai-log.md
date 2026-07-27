@@ -1217,3 +1217,30 @@ STRIKE 타격을 일반 타격과 시각적으로 구분한다.
 ### 미해결 / 다음 인계
 1. BattleState 스냅샷의 깊은 유효성은 아직 없다. host 신뢰 모델에서는 방어하지 못하므로 악의적 host 차단은 범위 밖이다. `[UNSUPPORTED]` 생산 서비스의 안티치트는 별도 신뢰 서버가 필요하다.
 2. 다음 조각은 `src/app/onlineBattle.ts`: host만 `stepBattle`을 호출하고 guest는 더 최신 스냅샷만 렌더하게 하는 coordinator다.
+---
+
+## S3 실시간 PvP — host-authoritative battle coordinator (Codex Task 2)
+
+**날짜:** 2026-07-27
+**담당:** Codex
+**근거:** `docs/superpowers/plans/2026-07-27-realtime-pvp.md` Task 2, 고정 timestep과 `cloneBattleState`의 S3 용도(`src/engine/fixedTimestep.ts:4-12`, `src/game/battleState.ts:145-164`).
+
+### 목표
+host만 `stepBattle`을 호출하고 guest는 host의 더 최신 `BattleState`를 복제해 화면에 반영한다. guest의 버스트가 재전송으로 두 번 처리되지 않도록 sequence 경계를 둔다.
+
+### 실제 작업
+- 실패 스모크 `tools/onlineBattle.ts`를 먼저 작성했다. 구현 전 `npm run smoke:online-battle`은 `../src/app/onlineBattle`을 찾지 못해 빌드가 중단됐다.
+- `src/app/onlineBattle.ts`에 role별 coordinator를 추가했다.
+  - host: local index 0 + 최신 guest input index 1로 `stepBattle`을 호출하고 3 tick마다(60Hz/3 = 20Hz) 혹은 finish 즉시 깊은 스냅샷을 낸다.
+  - guest: 물리를 호출하지 않고 input sequence를 만든다. 더 큰 snapshot tick만 `cloneBattleState`로 적용한다.
+  - host는 최신 축 입력을 보관하되 처리 전 burst pulse가 이후 packet으로 덮여 사라지지 않게 OR 보존하고, 한 host tick 뒤 burst만 내린다.
+
+### 실행 관측
+- red: `npm run smoke:online-battle` → `UNRESOLVED_IMPORT ../src/app/onlineBattle`.
+- green: `Host-authoritative coordinator cases: 6/6 observed`.
+- 회귀: `npm run build` 종료 코드 0, `smoke:pvp-protocol` 6/6, `smoke:run` 동일 시드 8/8 (2026-07-27).
+
+### 미해결 / 다음 인계
+1. 현재 coordinator는 socket이 없다. 다음 Task 3 relay가 guest input을 host로, host snapshot을 guest로 전달해야 한다.
+2. guest가 snapshot event를 한 번만 이펙트로 소비하도록 `main.ts` 통합 시 tick 증가 여부를 사용해야 한다. 아직 화면 경로는 기존 bot session 그대로다.
+3. host 탭이 백그라운드면 `requestAnimationFrame`이 늦어질 수 있다(`src/engine/fixedTimestep.ts:46-59`). 두 탭 실제 시험에서 host 창 포커스 조건을 기록한다.
