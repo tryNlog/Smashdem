@@ -3,3 +3,6 @@ dist
 dist-tools
 *.local
 .DS_Store
+
+relay/.wrangler/
+relay/*.wrangler*.log

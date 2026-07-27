@@ -22,6 +22,8 @@ interface AttachedPeer {
 export interface RoomRouter {
   attachHost(loadout: PvpLoadout, send: RelaySend): boolean;
   attachGuest(loadout: PvpLoadout, seed: number, send: RelaySend): boolean;
+  /** Durable Object hibernation 뒤 기존 소켓을 다시 붙인다. match-start를 보내지 않는다. */
+  restorePeer(role: PvpRole, loadout: PvpLoadout, send: RelaySend): void;
   route(from: PvpRole, frame: RelayClientMessage): void;
   detach(role: PvpRole): void;
 }
@@ -73,6 +75,15 @@ export function createRoomRouter(): RoomRouter {
       guest = { loadout, send };
       sendMatchStart(seed);
       return true;
+    },
+
+    restorePeer(role: PvpRole, loadout: PvpLoadout, send: RelaySend): void {
+      // 이미 수락된 소켓만 이 경로로 들어온다. 재수락·match-start 재전송은 하지 않는다.
+      if (role === 'host') {
+        host = { loadout, send };
+        return;
+      }
+      guest = { loadout, send };
     },
 
     route(from: PvpRole, frame: RelayClientMessage): void {

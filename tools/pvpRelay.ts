@@ -48,7 +48,14 @@ function main(): void {
   router.detach('host');
   expect(guestFrames.some((frame) => frame.type === 'opponent-left'), 'guest must see host leave');
 
-  console.log('PvP room router cases: 8/8 observed');
+  const restoredHostFrames: RelayServerMessage[] = [];
+  const restoredGuestFrames: RelayServerMessage[] = [];
+  const restored = createRoomRouter();
+  restored.restorePeer('host', LOADOUT, (frame) => restoredHostFrames.push(frame));
+  restored.restorePeer('guest', LOADOUT, (frame) => restoredGuestFrames.push(frame));
+  expect(restoredHostFrames.length === 0 && restoredGuestFrames.length === 0, 'rehydration must not replay match-start');
+
+  console.log('PvP room router cases: 9/9 observed');
 }
 
 main();
