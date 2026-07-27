@@ -33,11 +33,12 @@ import { PVP_PRESETS } from './presets';
 import type { BeybladeStats } from '../game/types';
 import type { Build, SetTag } from '../game/parts';
 import { buildFromIds, buildProfile, completedSet } from '../game/parts';
+import type { PvpLoadout } from '../net/protocol';
 
 export const PLAYER_INDEX = 0;
 export const BOT_INDEX = 1;
 
-export type SessionScreen = 'battle' | 'reward' | 'runResult' | 'pvpSelect';
+export type SessionScreen = 'battle' | 'reward' | 'runResult' | 'pvpSelect' | 'pvpLobby';
 
 /** 완주/패배 후 저장 질의 단계. 승리일 때만 'pending' 으로 시작한다(§13-2). */
 export type SavePhase = 'pending' | 'done';
@@ -45,6 +46,8 @@ export type SavePhase = 'pending' | 'done';
 /** PvP 출전 선택 카드 뷰모델(프리셋 또는 저장 팽이). */
 export interface PvpEntryView {
   readonly id: string;
+  /** PvP 시작 시 relay로 전송할 파츠 ID 스냅샷. 강화는 profile에서 0으로 정규화한다. */
+  readonly loadout: PvpLoadout;
   readonly name: string;
   readonly kind: 'preset' | 'saved';
   readonly setTag: SetTag | null;
@@ -61,7 +64,10 @@ export interface Session {
   readonly hangar: readonly (HangarEntry | null)[];
   readonly savePhase: SavePhase;
   readonly pvpEntries: readonly PvpEntryView[];
+  readonly selectedPvpEntry: PvpEntryView | null;
   readonly pvpMessage: string | null;
+  /** WebSocket 바깥 계층(main)이 connection 상태를 Canvas에 전달한다. */
+  setPvpMessage(message: string | null): void;
 
   /** 배틀 화면일 때만 한 스텝 전진. 다른 화면에서는 시뮬을 멈춘다. */
   step(playerInput: InputCommand, deltaSeconds: number): void;
@@ -98,6 +104,7 @@ export function createSession(seedSource: () => number, options: SessionOptions 
   let hangar = loadHangar();
   let savePhase: SavePhase = 'done';
   let pvpEntries: PvpEntryView[] = [];
+  let selectedPvpEntry: PvpEntryView | null = null;
   let pvpMessage: string | null = null;
 
   function createBattleForCurrentBattle(forRun: RunState): BattleState {
@@ -176,21 +183,30 @@ export function createSession(seedSource: () => number, options: SessionOptions 
 
   function openPvpSelect(): void {
     pvpEntries = buildPvpEntries(hangar);
+    selectedPvpEntry = null;
     pvpMessage = null;
     screen = 'pvpSelect';
   }
 
   function closePvpSelect(): void {
+    selectedPvpEntry = null;
     pvpMessage = null;
     // 런이 진행 중이면 배틀로, 끝났으면 결과 화면으로 돌아간다.
     screen = run.phase === 'inRun' ? 'battle' : 'runResult';
   }
 
+  function closePvpLobby(): void {
+    selectedPvpEntry = null;
+    pvpMessage = null;
+    screen = 'pvpSelect';
+  }
+
   function selectPvpEntry(entryId: string): void {
     const entry = pvpEntries.find((candidate) => candidate.id === entryId);
     if (!entry) return;
-    // ★ S3 stub: 실제 온라인 대전 연결은 아직 없다. 선택만 확인하고 안내를 띄운다.
-    pvpMessage = `${entry.name} 선택됨 — 온라인 대전(방 코드/실시간)은 S3 에서 연결 예정 (현재 stub)`;
+    selectedPvpEntry = entry;
+    pvpMessage = null;
+    screen = 'pvpLobby';
   }
 
   return {
@@ -215,8 +231,14 @@ export function createSession(seedSource: () => number, options: SessionOptions 
     get pvpEntries() {
       return pvpEntries;
     },
+    get selectedPvpEntry() {
+      return selectedPvpEntry;
+    },
     get pvpMessage() {
       return pvpMessage;
+    },
+    setPvpMessage(message: string | null): void {
+      pvpMessage = message;
     },
 
     step(playerInput: InputCommand, deltaSeconds: number): void {
@@ -263,8 +285,12 @@ export function createSession(seedSource: () => number, options: SessionOptions 
         case 'battle:pvp':
           openPvpSelect();
           return;
+        case 'pvp:create':
+        case 'pvp:join':
+          return;
         case 'pvp:back':
-          closePvpSelect();
+          if (screen === 'pvpLobby') closePvpLobby();
+          else closePvpSelect();
           return;
       }
     },
@@ -282,6 +308,10 @@ function pvpCombatantProfile(build: Build) {
 }
 
 /** 프리셋 3종 + 저장 팽이(최대 5) 를 출전 선택 카드로 만든다(§13-2). PvP 컨텍스트로 정규화(강화 0). */
+function loadoutForBuild(build: Build): PvpLoadout {
+  return { layerId: build.layer.id, diskId: build.disk.id, driverId: build.driver.id };
+}
+
 function buildPvpEntries(hangar: readonly (HangarEntry | null)[]): PvpEntryView[] {
   const entries: PvpEntryView[] = [];
 
@@ -290,6 +320,7 @@ function buildPvpEntries(hangar: readonly (HangarEntry | null)[]): PvpEntryView[
     const tag = completedSet(preset.build);
     entries.push({
       id: `preset:${preset.key}`,
+      loadout: loadoutForBuild(preset.build),
       name: preset.name,
       kind: 'preset',
       setTag: tag,
@@ -311,6 +342,7 @@ function buildPvpEntries(hangar: readonly (HangarEntry | null)[]): PvpEntryView[
     }
     entries.push({
       id: `saved:${index}`,
+      loadout: { layerId: slot.layerId, diskId: slot.diskId, driverId: slot.driverId },
       name: slot.name,
       kind: 'saved',
       setTag: slot.completedSet,

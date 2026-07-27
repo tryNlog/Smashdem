@@ -1326,3 +1326,29 @@ Cloudflare 런타임에 닿기 전에 방의 정원(2명), host/guest 권한, �
 1. 이 조각은 injected FakeSocket으로만 시험했다. 실제 브라우저와 공개 Worker 접속은 아직 관측하지 않았다.
 2. `main.ts`/Canvas는 아직 기존 bot session을 렌더한다. 다음 Task 5에서 방 생성·코드 입력·match-start→`createOnlineBattle`을 연결해야 한다.
 3. GitHub Pages에서는 `wss://` Worker URL이 필요하다. 현재 공개 Cloudflare Worker URL은 PM 계정 작업으로 미설정이다.
+---
+
+## S3 실시간 PvP — Canvas lobby session handoff (Codex Task 5a)
+
+**날짜:** 2026-07-27
+**담당:** Codex
+**근거:** `docs/superpowers/plans/2026-07-27-realtime-pvp.md` Task 5, PvP 강화 정규화 규약(`src/app/session.ts:pvpCombatantProfile`).
+
+### 목표
+일반 런의 bot battle 상태와 온라인 대전 준비 상태를 분리한다. 출전 카드 선택이 파츠 ID 스냅샷을 가진 대기실로 이동하고, 뒤로 가기는 출전 선택에만 영향을 주게 한다.
+
+### 실제 작업
+- `tools/pvpLobby.ts`를 구현 전에 작성했다. 기존 세션에서는 출전 카드를 눌러도 `pvpSelect`에 남아 첫 기대 조건에서 실패했다.
+- `SessionScreen`에 `pvpLobby`, `selectedPvpEntry`, `PvpEntryView.loadout`을 추가했다. 프리셋과 격납고 저장 팽이는 PvP 컨텍스트로 계산한 카드 스탯과 원본 3개 part ID를 함께 보관한다.
+- 선택한 카드가 대기실을 열고 `pvp:back`은 출전 선택으로만 돌아간다. WebSocket 밖의 `main.ts`가 상태 문구를 주입할 `setPvpMessage` 경계도 추가했다.
+- Canvas에 선택 팽이 카드, 방 만들기·방 참가·출전 선택 버튼, PvP 강화 정규화 안내를 추가했다. 방 코드 native input과 실제 socket 연결은 다음 조각이다.
+
+### 실행 관측
+- red: `tools/pvpLobby.ts` 실행은 `selected entry must open the room lobby` 오류를 냈다.
+- green: 같은 스모크 → `PvP lobby session cases: 6/6 observed`.
+- 회귀: `npm run build` 종료 코드 0, `smoke:run` 동일 시드 8/8, `smoke:online-client` 12/12 (2026-07-27 콘솔 관측).
+
+### 미해결 / 다음 인계
+1. Canvas 대기실은 연결 상태를 표시할 경계만 준비했다. 방 코드 native input, `VITE_RELAY_URL` 해석, `OnlineClient` callback 연결은 다음 Task 5b다.
+2. 대기실 UI의 실제 브라우저 판독은 아직 없다. browser canvas 검토는 Task 5b의 두 탭 수동 시험과 함께 기록한다.
+3. 공개 Cloudflare Worker endpoint는 PM 계정 작업으로 미설정이다.

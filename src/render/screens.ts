@@ -115,6 +115,16 @@ function pvpButtons(canvas: HTMLCanvasElement, session: Session): UiButton[] {
   return buttons;
 }
 
+function pvpLobbyButtons(canvas: HTMLCanvasElement): UiButton[] {
+  const buttonWidth = 210;
+  const buttonHeight = 46;
+  const gap = 20;
+  return [
+    { id: 'pvp:create', x: canvas.width / 2 - buttonWidth - gap / 2, y: 432, w: buttonWidth, h: buttonHeight },
+    { id: 'pvp:join', x: canvas.width / 2 + gap / 2, y: 432, w: buttonWidth, h: buttonHeight },
+    { id: 'pvp:back', x: canvas.width / 2 - 100, y: 502, w: 200, h: 42 },
+  ];
+}
 /** 배틀 화면에 상시 노출되는 [온라인 대전] 버튼(§1-3 "언제든"). */
 function battleButtons(canvas: HTMLCanvasElement): UiButton[] {
   return [{ id: 'battle:pvp', x: canvas.width / 2 - 74, y: 588, w: 148, h: 26 }];
@@ -130,6 +140,8 @@ function buttonsFor(canvas: HTMLCanvasElement, session: Session): UiButton[] {
       return runResultButtons(canvas, session);
     case 'pvpSelect':
       return pvpButtons(canvas, session);
+    case 'pvpLobby':
+      return pvpLobbyButtons(canvas);
     case 'battle':
       return battleButtons(canvas);
   }
@@ -164,6 +176,9 @@ export function drawSessionOverlay(context: CanvasRenderingContext2D, canvas: HT
       break;
     case 'pvpSelect':
       drawPvpScreen(context, canvas, session);
+      break;
+    case 'pvpLobby':
+      drawPvpLobbyScreen(context, canvas, session);
       break;
     case 'battle':
       // 배틀 중에도 세트 진행을 볼 수 있게 좌측(플레이어 상태 패널 아래, 아레나 왼쪽 빈 공간)에 얹는다.
@@ -602,7 +617,7 @@ function drawHangarSlot(
   context.fillText('클릭 시 덮어쓰기', button.x + 10, button.y + 72);
 }
 
-// ── PvP 출전 선택 (stub) ────────────────────────────────────
+// ── PvP 출전 선택 / 방 대기실 ─────────────────────────────────
 
 function drawPvpScreen(context: CanvasRenderingContext2D, canvas: HTMLCanvasElement, session: Session): void {
   drawDimBackground(context, canvas);
@@ -615,7 +630,7 @@ function drawPvpScreen(context: CanvasRenderingContext2D, canvas: HTMLCanvasElem
 
   context.fillStyle = HUD_COLORS.overlaySubText;
   context.font = '500 15px "Segoe UI", "Malgun Gothic", sans-serif';
-  context.fillText('프리셋 3종 + 격납고 저장 팽이. 클릭해 출전 팽이를 고른다 (온라인 연결은 S3 — 현재 stub)', canvas.width / 2, 104);
+  context.fillText('프리셋 3종 + 격납고 저장 팽이. 출전 팽이를 고른 뒤 방 코드 대기실로 간다.', canvas.width / 2, 104);
 
   const buttons = pvpButtons(canvas, session);
   session.pvpEntries.forEach((entry, index) => {
@@ -633,6 +648,39 @@ function drawPvpScreen(context: CanvasRenderingContext2D, canvas: HTMLCanvasElem
   }
 }
 
+function drawPvpLobbyScreen(context: CanvasRenderingContext2D, canvas: HTMLCanvasElement, session: Session): void {
+  drawDimBackground(context, canvas);
+
+  context.textAlign = 'center';
+  context.textBaseline = 'top';
+  context.fillStyle = HUD_COLORS.overlayText;
+  context.font = '800 34px "Segoe UI", "Malgun Gothic", sans-serif';
+  context.fillText('온라인 대전 — 방 대기실', canvas.width / 2, 48);
+
+  const entry = session.selectedPvpEntry;
+  if (entry) {
+    drawPvpEntryCard(context, { id: 'pvp:selected', x: canvas.width / 2 - 110, y: 120, w: 220, h: 132 }, entry);
+  } else {
+    context.fillStyle = '#ff9a9a';
+    context.font = '600 16px "Segoe UI", "Malgun Gothic", sans-serif';
+    context.fillText('출전 팽이를 먼저 선택해야 합니다.', canvas.width / 2, 168);
+  }
+
+  context.fillStyle = HUD_COLORS.overlaySubText;
+  context.font = '500 15px "Segoe UI", "Malgun Gothic", sans-serif';
+  context.fillText('방 만들기: 코드 발급 후 공유  ·  방 참가: 받은 6자리 코드 입력', canvas.width / 2, 304);
+  context.fillText('PvP에서는 강화 수치가 0으로 정규화되고 세트 완성 효과만 유지됩니다.', canvas.width / 2, 330);
+
+  const buttons = pvpLobbyButtons(canvas);
+  drawButton(context, buttons[0], '방 만들기', { fill: '#2c5d7b', border: '#66c7f4' });
+  drawButton(context, buttons[1], '방 참가', { fill: '#403269', border: '#b9a0ff' });
+  drawButton(context, buttons[2], '출전 선택으로', { fill: '#2a3145', border: '#4a5678' });
+
+  const status = session.pvpMessage ?? '연결 대기';
+  context.fillStyle = session.pvpMessage ? '#ffd166' : '#9aa8c5';
+  context.font = '600 15px "Segoe UI", "Malgun Gothic", sans-serif';
+  context.fillText(status, canvas.width / 2, 382);
+}
 function drawPvpEntryCard(
   context: CanvasRenderingContext2D,
   button: UiButton,
