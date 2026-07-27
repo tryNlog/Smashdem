@@ -1,4 +1,4 @@
-# SMASHDEM — 로그라이크 팽이 배틀
+# Smashdem — 로그라이크 팽이 배틀
 
 상대를 밀어 회전력을 깎는 2D 팽이 배틀. 한 판을 이길 때마다 파츠를 **3택 1**로 골라
 빌드를 쌓아 12판 런 완주를 노리는 싱글플레이(대전 상대는 봇) 로그라이크입니다.
@@ -9,7 +9,7 @@
 
 ## 플레이 링크
 
-<!-- TODO: 배포 후 https://<user>.github.io/smashdem/ 기입 -->
+<!-- TODO: 배포 후 https://<user>.github.io/Smashdem/ 기입 -->
 
 ## 조작법
 
@@ -58,5 +58,5 @@ tools/      헤드리스 스모크 테스트 (npm run smoke*)
 
 `main` 브랜치 push 시 GitHub Actions(`.github/workflows/deploy.yml`)가
 `npm ci → npm run build → dist/` 를 GitHub Pages 로 배포합니다.
-Vite `base: './'`(`vite.config.ts:7`)로 리포 하위 경로(`/smashdem/`) 배포에서
+Vite `base: './'`(`vite.config.ts:7`)로 리포 하위 경로(`/Smashdem/`) 배포에서
 에셋 경로가 상대경로가 되도록 설정돼 있습니다.

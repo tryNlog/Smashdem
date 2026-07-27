@@ -34,14 +34,15 @@ git config user.name  "<공개해도 되는 이름>"
 ## 순서
 
 ### 1. GitHub 에서 빈 public 리포 생성
-- New repository → 리포 이름 **`smashdem`** (소문자) → **Public** 선택
-  - 배포 URL 이 `https://<user>.github.io/smashdem/` 가 되므로 리포명이 URL 경로가 됨.
+- New repository → 리포 이름 **`Smashdem`** → **Public** 선택
+  - 배포 URL 이 `https://<user>.github.io/Smashdem/` 가 되므로 리포명이 URL 경로가 됨.
+  - **URL 경로는 실제 만든 리포 이름의 대소문자를 그대로 따른다** (github.io 경로는 대소문자 구분). 아래 예시는 리포명을 `Smashdem` 으로 만든 경우 기준.
 - **"Add a README" / "Add .gitignore" / license 는 모두 체크 해제**
   (README·.gitignore 는 이미 로컬에 있음 — 체크하면 push 시 충돌)
 
 ### 2. 로컬에 remote 연결
 ```bash
-git remote add origin https://github.com/<user>/smashdem.git
+git remote add origin https://github.com/<user>/Smashdem.git
 ```
 
 ### 3. s2-run 을 원격 main 으로 push
@@ -59,7 +60,7 @@ git push origin s2-run:main
 - **Actions** 탭 → "Deploy to GitHub Pages" 워크플로 실행이 끝날 때까지 대기
   (build → deploy 두 잡)
 - 성공하면 deploy 잡 또는 Settings > Pages 상단에 URL 표시:
-  `https://<user>.github.io/smashdem/`
+  `https://<user>.github.io/Smashdem/`
 
 ---
 
@@ -69,7 +70,7 @@ self-declaration 금지 — 아래는 PM이 직접 열어 관찰할 항목입니
 
 | # | 확인 | 방법 |
 |---|---|---|
-| L1 | 게임 로딩 · 콘솔 에러 | 시크릿 창에서 `https://<user>.github.io/smashdem/` 열기, F12 콘솔 확인 |
+| L1 | 게임 로딩 · 콘솔 에러 | 시크릿 창에서 `https://<user>.github.io/Smashdem/` 열기, F12 콘솔 확인 |
 | L2 | 리포 public | 로그아웃/시크릿 창에서 리포 URL 열림 |
 | L3 | 전체 소스 포함 | 리포에 `src/` 전체 + `tools/` 보이는지 (이 브랜치엔 별도 WS 서버 없음, 아래 참고) |
 | L4 | 에셋 404 없음 | 시크릿 창 Network 탭에서 `assets/*.js` 200 인지 |
