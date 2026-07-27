@@ -2,15 +2,15 @@
 
 > Claude ↔ Codex 세션 제한 릴레이의 인계 상태 파일. **작업 시작 전 읽고, 손 떼기 전 갱신한다.** 규칙 전문은 리포 루트 `AGENTS.md`.
 
-## 현재 상태 (last updated: 2026-07-27, by Claude)
-- **현재 담당:** Claude (현재 활성 세션 제한 없음)
-- **Claude 제한 해제 예정 시각:** 해당 없음(현재 제한 안 걸림). 제한이 걸리면 이 줄에 하니스가 표시한 해제 시각을 기입.
-- **Codex 복귀 가능 시각:** (Codex가 인계 시 자신의 사용량 여건에 따라 기입)
-- **브랜치:** s2-run (마지막 커밋은 아래 로그 참조). remote 있음, **push 금지**.
-- **트리:** clean
+## 현재 상태 (last updated: 2026-07-27 14:03 KST, by Codex)
+- **현재 담당:** Codex (Claude의 월간 사용량 한도로 인계받음)
+- **Claude 제한 해제 예정 시각:** `[UNSUPPORTED]` — 마지막 메시지는 "monthly spend limit"만 표시했고, 복귀 시각을 제공하지 않았다. 다음 Claude 제한 메시지에 시각이 있으면 이 줄에 기록한다.
+- **Codex 복귀 가능 시각:** 현재 세션에서 인계 시 기입.
+- **브랜치:** s2-run (마지막 커밋 `977a7d3`). remote 있음, **push 금지**.
+- **트리:** clean (Codex 확인: `git status --short`, 2026-07-27 14:00 KST)
 
 ## 진행 중 작업
-- 없음. (STRIKE 가시화 커밋 완료, PM 로컬 재플레이 대기 중)
+- **Codex 점검:** STRIKE 타격 회전력 감소 가시화(PD-4)의 로컬·배포 화면 판독 점검. 구현 커밋 `6585cb8`(이벤트 관측값) / `a6dfbc5`(팝업·게이지칩·비례 번쩍임) / `fbbc553`(AI 로그). 코드 변경 여부는 실제 화면 확인 뒤에만 판단한다.
 
 ## 다음 작업 큐 (우선순위 순, 각 완료 기준 포함)
 1. **[PM 게이트] STRIKE 가시화 재플레이 판정** — PM이 `npm run dev`로 STRIKE 세트 완성 타격이 "확 깎인다"로 읽히는지 확인. 과하거나 부족하면 튜닝값(`src/render/effects.ts`의 SPIN_LOSS_REFERENCE=6, 드레인/rate, 팝업 상한·폰트 범위) 조정. PM 부재면 큐로 두고 아래 항목 먼저.
@@ -23,3 +23,7 @@
 - 한 것: GitHub Pages 배포(https://trynlog.github.io/Smashdem/), 게임명 Smashdem 전면 반영(README/DEPLOY/package.json 소문자/index.html 탭 제목), STRIKE 타격 회전력 감소 가시화(PD-4). 결정론 `smoke:run` 동일 시드 8/8 일치 재확인.
 - 멈춘 지점: §17 재플레이 前 구현 관문 종료, PM 재플레이 대기.
 - 다음 담당에게: PM 재플레이 없이도 진행 가능한 최대 항목은 큐 #2(S3 넷코드) — 가장 크고 격리돼 있어 릴레이로 진척 내기 좋다. 배포 커밋들은 아직 로컬 s2-run에만 있고 push는 PM 몫.
+### 2026-07-27 14:03 KST — Claude → Codex
+- 인계 사유: Claude 세션이 아닌 **월간 사용량 한도**에 도달했다. 자동 복귀 시각은 메시지에 없으므로 Codex가 시간 기준으로 종료를 예약할 근거가 없다.
+- Codex 확인: `npm run build`, `npm run smoke`, `npm run smoke:run`, `npm run smoke:tiers`, `npm run smoke:reroll`를 2026-07-27에 재실행했다. 각 결과는 콘솔 측정값이며, 사람 플레이·화면 판독은 별도다.
+- 다음 담당에게: 화면 검토 결과와 사용자 재플레이 의견을 이 절 위에 추가한다. Claude가 다시 사용 가능해지면 이 문서의 현재 담당·복귀 시각을 Claude가 갱신한 뒤 바통을 가져간다.
