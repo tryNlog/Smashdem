@@ -6,8 +6,8 @@
 - **현재 담당:** Codex (Claude의 월간 사용량 한도로 인계받음)
 - **Claude 제한 해제 예정 시각:** `[UNSUPPORTED]` — 마지막 메시지는 "monthly spend limit"만 표시했고, 복귀 시각을 제공하지 않았다. 다음 Claude 제한 메시지에 시각이 있으면 이 줄에 기록한다.
 - **Codex 복귀 가능 시각:** 현재 세션에서 인계 시 기입.
-- **브랜치:** `s2-run`; 최신 로컬 커밋 `67f5e6a`은 실제 local relay 경로 스모크다. remote `origin`은 있고, **push 금지**.
-- **트리:** `1ad9f62`까지 로컬 커밋된 뒤 상태를 확인한다. remote push는 PM 전용이다.
+- **브랜치:** `s2-run`; 최신 로컬 커밋 `6f6cb92`은 모바일 입력 문서이며, source는 `7f8bf9f`·`40a85cd`에 있다. remote `origin`은 있고, **push 금지**.
+- **트리:** `6f6cb92`까지 로컬 커밋된 뒤 상태를 확인한다. remote push는 PM 전용이다.
 ## 진행 중 작업
 - **S3 공개 relay 배선:** `1ad9f62`에 GitHub Actions `VITE_RELAY_URL` 주입, direct Vite env access, local relay build smoke, PM Cloudflare/Pages 절차가 있다. 공개 Worker endpoint와 Canvas 두 브라우저 관찰은 PM 게이트다.
 - **PM 게이트:** Cloudflare 로그인·`npm run relay:deploy`·GitHub Actions 변수 등록·원격 push·공개 Worker/Canvas 두 브라우저 관찰은 PM 계정과 브라우저가 필요한 작업이다. PM 부재 시 모바일 조작·제출물 큐로 이동한다.
