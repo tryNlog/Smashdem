@@ -9,7 +9,7 @@ import * as Balance from '../game/balance';
 import type { BattleState, Beyblade } from '../game/types';
 import type { SetTag } from '../game/parts';
 import { clamp } from '../engine/vector';
-import { advanceEffects, spinDropIntensity, type EffectBuffer } from './effects';
+import { advanceEffects, spinDropIntensity, spinDropIsStrike, type EffectBuffer } from './effects';
 import { ARENA_COLORS, BEYBLADE_APPEARANCES, HUD_COLORS, SET_COLORS } from './palette';
 
 /**
@@ -46,6 +46,13 @@ const HUD_MARGIN = 18;
 /** 화면 흔들림 최대 진폭(px). 영상에서 멀미 안 나게 상한을 둔다. */
 const SHAKE_MAX_AMPLITUDE = 10;
 
+/**
+ * 게이지 고스트 드레인. 최소 속도(초당 spin)는 자연 감소(≈1/s)를 흡수해 상시 잔상을 없애고,
+ * gap 비례 항이 큰 타격의 칩을 ~0.4초 안에 흘려보낸다. 렌더 전용 상수(밸런스 아님).
+ */
+const GHOST_MIN_DRAIN_PER_SECOND = 18;
+const GHOST_DRAIN_RATE = 4.5;
+
 interface RenderSnapshot {
   positionX: number;
   positionY: number;
@@ -72,6 +79,8 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
   const snapshots = new Map<number, RenderSnapshot>();
   // 속도 잔상(trail) — 팽이별 최근 위치 몇 개. 렌더 전용 히스토리.
   const trails = new Map<number, RenderSnapshot[]>();
+  // 게이지 고스트 — 최근 회전력값을 천천히 따라 내려가며, 방금 깎인 구간을 밝은 칩으로 남긴다(PD-4, 렌더 전용).
+  const spinGhosts = new Map<number, number>();
 
   function worldToScreenX(worldX: number): number {
     return canvas.width / 2 + worldX;
@@ -132,10 +141,17 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
     }
 
     drawSparks(context, effects, worldToScreenX, worldToScreenY);
+    drawDamagePopups(context, effects, worldToScreenX, worldToScreenY);
+
+    // 게이지 고스트 갱신(히트스톱 중엔 정지). HUD 가 방금 깎인 회전력 구간을 밝게 표시한다.
+    const spinGhostRatios = new Map<number, number>();
+    for (const beyblade of state.beyblades) {
+      spinGhostRatios.set(beyblade.index, updateSpinGhost(beyblade, inHitStop, renderDeltaSeconds));
+    }
 
     context.setTransform(1, 0, 0, 1, 0, 0);
     drawImpactFlash(context, canvas, effects);
-    drawHud(context, canvas, state, effects);
+    drawHud(context, canvas, state, effects, spinGhostRatios);
     if (runHud) drawRunHud(context, canvas, runHud);
     drawPhaseOverlay(context, canvas, state);
   }
@@ -154,6 +170,26 @@ export function createRenderer(canvas: HTMLCanvasElement): Renderer {
       snapshot.angle = beyblade.visualSpinAngle;
     }
     return snapshot;
+  }
+
+  /**
+   * 게이지 고스트값(0~1 비율)을 갱신·반환한다. 현재 회전력보다 위에 머물다 천천히 내려가,
+   * 방금 깎인 구간이 밝은 칩으로 잠깐 남는다(격투게임 chip 표현).
+   * 최소 드레인 속도가 자연 감소(초당 ~1)를 항상 흡수하므로, 상시 잔상이 아니라 타격·링아웃 같은
+   * 급감에서만 칩이 보인다. 큰 감소(STRIKE)일수록 칩이 크고 오래 남는다.
+   */
+  function updateSpinGhost(beyblade: Beyblade, inHitStop: boolean, dt: number): number {
+    const current = beyblade.spin;
+    let ghost = spinGhosts.get(beyblade.index);
+    if (ghost === undefined || current > ghost) {
+      ghost = current; // 초기화 또는 회전력 회복(라운드 리셋) 시 즉시 맞춘다.
+    } else if (!inHitStop) {
+      const gap = ghost - current;
+      const drainPerSecond = Math.max(GHOST_MIN_DRAIN_PER_SECOND, gap * GHOST_DRAIN_RATE);
+      ghost = Math.max(current, ghost - drainPerSecond * dt);
+    }
+    spinGhosts.set(beyblade.index, ghost);
+    return clamp(ghost / Balance.SPIN_MAXIMUM, 0, 1);
   }
 
   function updateTrail(beyblade: Beyblade, inHitStop: boolean): void {
@@ -317,6 +353,39 @@ function drawSparks(
     context.globalAlpha = lifeRatio;
     context.lineWidth = spark.width;
     context.stroke();
+  }
+  context.restore();
+  context.globalAlpha = 1;
+}
+
+/**
+ * 타격당 회전력 감소 숫자 팝업(PD-4). 감소량에 비례해 글씨가 커지고, STRIKE 타격은 전용 색으로 뜬다.
+ * 검정 외곽선을 둘러 접시·팽이 위에서도 읽힌다(저화질 영상 대비).
+ */
+function drawDamagePopups(
+  context: CanvasRenderingContext2D,
+  effects: EffectBuffer,
+  worldToScreenX: (value: number) => number,
+  worldToScreenY: (value: number) => number,
+): void {
+  context.save();
+  context.textAlign = 'center';
+  context.textBaseline = 'middle';
+  for (const popup of effects.damagePopups) {
+    const lifeRatio = clamp(popup.remainingSeconds / popup.totalSeconds, 0, 1);
+    const alpha = Math.min(1, lifeRatio * 1.7); // 대부분 수명 동안 선명하다 마지막에 페이드.
+    const fontSize = 13 + popup.intensity * 20 + (popup.strike ? 4 : 0);
+    const color = popup.strike ? SET_COLORS.STRIKE : popup.intensity > 0.55 ? '#ffd27a' : '#ffffff';
+    const screenX = worldToScreenX(popup.positionX);
+    const screenY = worldToScreenY(popup.positionY);
+    const text = popup.strike ? `-${popup.amount}!` : `-${popup.amount}`;
+    context.font = `800 ${fontSize.toFixed(0)}px "Segoe UI", "Malgun Gothic", sans-serif`;
+    context.globalAlpha = alpha;
+    context.lineWidth = 3;
+    context.strokeStyle = 'rgba(0, 0, 0, 0.85)';
+    context.strokeText(text, screenX, screenY);
+    context.fillStyle = color;
+    context.fillText(text, screenX, screenY);
   }
   context.restore();
   context.globalAlpha = 1;
@@ -517,13 +586,17 @@ function drawHud(
   canvas: HTMLCanvasElement,
   state: BattleState,
   effects: EffectBuffer,
+  spinGhostRatios: Map<number, number>,
 ): void {
   const playerOne = state.beyblades[0];
   const playerTwo = state.beyblades[1];
 
-  if (playerOne) drawStatusPanel(context, HUD_MARGIN, HUD_MARGIN, playerOne, false, effects);
+  if (playerOne) {
+    drawStatusPanel(context, HUD_MARGIN, HUD_MARGIN, playerOne, false, effects, spinGhostRatios.get(playerOne.index) ?? 0);
+  }
   if (playerTwo) {
-    drawStatusPanel(context, canvas.width - HUD_MARGIN - HUD_PANEL_WIDTH, HUD_MARGIN, playerTwo, true, effects);
+    const rightX = canvas.width - HUD_MARGIN - HUD_PANEL_WIDTH;
+    drawStatusPanel(context, rightX, HUD_MARGIN, playerTwo, true, effects, spinGhostRatios.get(playerTwo.index) ?? 0);
   }
 
   // 남은 시간
@@ -549,6 +622,7 @@ function drawStatusPanel(
   beyblade: Beyblade,
   alignRight: boolean,
   effects: EffectBuffer,
+  spinGhostRatio: number,
 ): void {
   const appearance = BEYBLADE_APPEARANCES[beyblade.index % BEYBLADE_APPEARANCES.length];
 
@@ -574,21 +648,42 @@ function drawStatusPanel(
   context.fillStyle = beyblade.ringOutCount > 0 ? '#ff9a3c' : HUD_COLORS.label;
   context.fillText(`링아웃 ${beyblade.ringOutCount}`, panelX + HUD_PANEL_WIDTH / 2, panelY + 10);
 
-  // 회전력 게이지 (= HP). F3 — 링아웃 순간 게이지가 번쩍인다.
+  // 회전력 게이지 (= HP). PD-4 — 매 타격 감소를 고스트 칩 + 게이지 번쩍임으로 노출한다.
   const barX = panelX + 10;
+  const barY = panelY + 28;
+  const barHeight = 12;
   const barWidth = HUD_PANEL_WIDTH - 20;
   const spinRatio = clamp(beyblade.spin / Balance.SPIN_MAXIMUM, 0, 1);
   const dropIntensity = spinDropIntensity(effects, beyblade.index);
-  drawBar(context, barX, panelY + 28, barWidth, 12, spinRatio, HUD_COLORS.spinBarBackground, appearance.rimColor, alignRight);
-  if (dropIntensity > 0) {
-    // 게이지 위에 흰색 번쩍임 + 테두리 강조.
+  const dropStrike = spinDropIsStrike(effects, beyblade.index);
+  drawBar(context, barX, barY, barWidth, barHeight, spinRatio, HUD_COLORS.spinBarBackground, appearance.rimColor, alignRight);
+
+  // 고스트 칩 — 현재 회전력과 직전 회전력 사이(방금 깎인 구간)를 밝게 덧칠한다. 클수록 STRIKE.
+  if (spinGhostRatio > spinRatio + 0.001) {
+    const chipColor = dropStrike ? SET_COLORS.STRIKE : '#ffd27a';
+    const fullEnd = barWidth * spinGhostRatio;
+    const filledEnd = barWidth * spinRatio;
+    const chipWidth = fullEnd - filledEnd;
+    const chipX = alignRight ? barX + barWidth - fullEnd : barX + filledEnd;
     context.save();
-    context.globalAlpha = dropIntensity * 0.8;
-    context.fillStyle = '#fff2c4';
-    context.fillRect(barX, panelY + 28, barWidth * spinRatio, 12);
-    context.strokeStyle = '#ffb14e';
-    context.lineWidth = 2;
-    context.strokeRect(barX - 1, panelY + 27, barWidth + 2, 14);
+    context.globalAlpha = 0.85;
+    context.fillStyle = chipColor;
+    context.fillRect(chipX, barY, chipWidth, barHeight);
+    context.restore();
+    context.globalAlpha = 1;
+  }
+
+  if (dropIntensity > 0) {
+    // 게이지 전체 번쩍임 + 테두리 강조. 세기(감소량 비례)와 색(STRIKE 여부)이 타격을 읽게 한다.
+    const flashColor = dropStrike ? SET_COLORS.STRIKE : '#fff2c4';
+    const borderColor = dropStrike ? SET_COLORS.STRIKE : '#ffb14e';
+    context.save();
+    context.globalAlpha = clamp(dropIntensity, 0, 1) * 0.85;
+    context.fillStyle = flashColor;
+    context.fillRect(barX, barY, barWidth * spinRatio, barHeight);
+    context.strokeStyle = borderColor;
+    context.lineWidth = 1.5 + dropIntensity * 2;
+    context.strokeRect(barX - 1, barY - 1, barWidth + 2, barHeight + 2);
     context.restore();
     context.globalAlpha = 1;
   }
