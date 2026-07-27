@@ -7,9 +7,9 @@
 - **Claude 제한 해제 예정 시각:** `[UNSUPPORTED]` — 마지막 메시지는 "monthly spend limit"만 표시했고, 복귀 시각을 제공하지 않았다. 다음 Claude 제한 메시지에 시각이 있으면 이 줄에 기록한다.
 - **Codex 복귀 가능 시각:** 현재 세션에서 인계 시 기입.
 - **브랜치:** `s2-run`; 최신 로컬 커밋 `67f5e6a`은 실제 local relay 경로 스모크다. remote `origin`은 있고, **push 금지**.
-- **트리:** 배포 URL 주입 경계와 S3 릴레이 문서 갱신 중. 이후 `git status`와 커밋 해시로 인계 상태를 다시 기록한다.
+- **트리:** `1ad9f62`까지 로컬 커밋된 뒤 상태를 확인한다. remote push는 PM 전용이다.
 ## 진행 중 작업
-- **S3 공개 relay 배선:** Task 1~5b 및 Node→local Durable Object 실경로 스모크는 로컬 커밋에 있다. 현재는 GitHub Actions `VITE_RELAY_URL` 주입 경계, PM Cloudflare Worker 배포 절차, Pages 두 브라우저 확인 절차를 문서화·점검 중이다.
+- **S3 공개 relay 배선:** `1ad9f62`에 GitHub Actions `VITE_RELAY_URL` 주입, direct Vite env access, local relay build smoke, PM Cloudflare/Pages 절차가 있다. 공개 Worker endpoint와 Canvas 두 브라우저 관찰은 PM 게이트다.
 - **PM 게이트:** Cloudflare 로그인·`npm run relay:deploy`·GitHub Actions 변수 등록·원격 push·공개 Worker/Canvas 두 브라우저 관찰은 PM 계정과 브라우저가 필요한 작업이다. PM 부재 시 모바일 조작·제출물 큐로 이동한다.
 ## 다음 작업 큐 (우선순위 순, 각 완료 기준 포함)
 1. **[PM 게이트] STRIKE 가시화 재플레이 판정** — PM이 `npm run dev`로 STRIKE 세트 완성 타격이 "확 깎인다"로 읽히는지 확인. 과하거나 부족하면 튜닝값(`src/render/effects.ts`의 SPIN_LOSS_REFERENCE=6, 드레인/rate, 팝업 상한·폰트 범위) 조정. PM 부재면 큐로 두고 아래 항목 먼저.
@@ -63,3 +63,9 @@
 - 코드: `tools/onlineMatchRelay.ts`와 npm script를 추가했다. Node 22 표준 WebSocket이 기본 OnlineClient 경로를 사용해 local Durable Object relay에 host/guest로 붙는다.
 - 관측: create→6자리 code→양쪽 match-start→host tick 3 snapshot→guest tick 3→guest close→host opponent-left까지 `smoke:online-match-relay` 6/6. 기존 `smoke:relay-local`은 relay router 직접 경계, 이 스모크는 app/client 경계다.
 - 다음: 여전히 사람 브라우저 Canvas 2탭 확인과 PM public Cloudflare Worker/Pages URL 주입이 필요하다. Codex browser 초기화 제한은 Task 5b 기록을 참조한다.
+### 2026-07-27 — Codex S3 public relay build URL
+- 코드: `1ad9f62` — Vite bundle에 public relay origin을 넣는 `import.meta.env.VITE_RELAY_URL` 경로, local `smoke:relay-build`, Pages workflow variable 배선, README/DEPLOY 절차를 기록했다. `src/game/`은 수정하지 않았다.
+- red→green 관측: placeholder URL build는 optional-chain expression에서 `VITE_RELAY_URL was not embedded in the production bundle`을 냈다. direct expression 변경 뒤 `smoke:relay-build` 1/1을 관측했다.
+- 회귀 관측: normal build 종료 코드 0; protocol 6/6, online client 15/15, lobby 8/8, online match 11/11, local Worker app/client 경로 6/6 (2026-07-27 콘솔).
+- 실행 환경: 모든 항목을 한 PowerShell process로 묶은 명령은 protocol 출력 뒤 892.5초에 timeout이 났다. 이후 각 smoke를 분리 실행하면 위 수치가 나왔다. 원인은 `[UNSUPPORTED]`; 다음 담당은 스모크를 개별 실행해 시간을 기록한다.
+- 다음: PM이 Cloudflare에서 `npm run relay:deploy` 후 출력된 public Worker origin을 `wss://`로 변환해 GitHub Actions `VITE_RELAY_URL`에 넣고 Pages를 재배포한다. 그 뒤 사람 브라우저 두 탭 Canvas 확인을 기록한다. PM 부재 시 큐 #3 모바일 터치 조작으로 이동한다.
