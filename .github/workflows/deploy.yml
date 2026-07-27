@@ -1,0 +1,62 @@
+name: Deploy to GitHub Pages
+
+# main 브랜치 push 시 자동 배포.
+# PM 은 로컬 s2-run 을 원격 main 으로 push 한다(DEPLOY.md 참조).
+on:
+  push:
+    branches: [main]
+  # Actions 탭에서 수동 실행도 허용.
+  workflow_dispatch:
+
+# GitHub Pages 배포에 필요한 최소 권한.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 동시 배포 방지 — 진행 중인 실행이 있으면 최신 것만 남긴다.
+# in-progress 는 취소하지 않아(cancel-in-progress: false) 배포 도중 끊기지 않게 한다.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # package-lock.json 이 커밋돼 있으므로 재현 가능한 설치.
+      - name: Install dependencies
+        run: npm ci
+
+      # package.json 의 build = "tsc --noEmit && vite build",
+      # vite.config.ts 의 outDir = "dist" → 산출물은 ./dist.
+      - name: Build
+        run: npm run build
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
