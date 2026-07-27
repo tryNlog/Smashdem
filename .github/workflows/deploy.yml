@@ -44,6 +44,10 @@ jobs:
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
+        # enablement: true — 워크플로 실행 시 Pages 를 GitHub Actions 소스로 자동 활성화.
+        # 리포에 Pages 미설정 상태에서 "Get Pages site failed ... 404" 를 막는다.
+        with:
+          enablement: true
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
