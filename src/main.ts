@@ -14,7 +14,10 @@ import { startFixedTimestepLoop } from './engine/fixedTimestep';
 import * as Balance from './game/balance';
 import { createKeyboardInputSource } from './game/playerInput';
 import { buildSetSummary, enhanceTotal, tierForBattle, type RunBuild } from './game/run';
-import { createSession, PLAYER_INDEX } from './app/session';
+import { createSession, PLAYER_INDEX, type PvpEntryView } from './app/session';
+import { createOnlineMatch, type OnlineMatchStatus } from './app/onlineMatch';
+import { createOnlineClient, resolveRelayUrl } from './net/onlineClient';
+import { isRoomCode } from './net/protocol';
 import { clearEffects, consumeSimulationEvents, createEffectBuffer } from './render/effects';
 import { createRenderer, type BattleVisualContext, type RunHudContext } from './render/renderer';
 import { drawSessionOverlay, hitTestSession } from './render/screens';
@@ -41,6 +44,114 @@ function bootstrap(): void {
    * (순수 계층 안에서 Date.now() 를 부르면 결정론이 깨진다 — 구조 제약)
    */
   const session = createSession(() => Date.now() & 0x7fffffff);
+  const roomCodeInputElement = document.getElementById('room-code-input');
+  if (!(roomCodeInputElement instanceof HTMLInputElement)) {
+    throw new Error('#room-code-input 을 찾지 못했습니다.');
+  }
+  const roomCodeInput: HTMLInputElement = roomCodeInputElement;
+
+  const viteEnvironment = import.meta as ImportMeta & { readonly env?: { readonly VITE_RELAY_URL?: string } };
+  const relayUrl = resolveRelayUrl(viteEnvironment.env?.VITE_RELAY_URL, window.location.hostname);
+  const onlineMatch = createOnlineMatch({
+    events: {
+      onRoomCode(code) {
+        roomCodeInput.value = code;
+        session.setPvpMessage('방 코드 ' + code + ' — 상대 참가 대기');
+      },
+      onStatus(status, detail) {
+        if (status === 'started' && onlineMatch.battle) {
+          session.enterOnlineBattle();
+          syncRoomCodeInput();
+        } else if ((status === 'opponent-left' || status === 'closed') && session.screen === 'onlineBattle') {
+          session.returnToPvpLobby();
+          syncRoomCodeInput();
+        }
+        session.setPvpMessage(onlineStatusText(status, detail));
+      },
+    },
+    clientFactory(events) {
+      if (!relayUrl) throw new Error('relay endpoint unavailable');
+      return createOnlineClient({ relayUrl, events });
+    },
+  });
+
+  function onlineStatusText(status: OnlineMatchStatus, detail?: string): string {
+    switch (status) {
+      case 'connecting':
+        return 'relay 연결 중';
+      case 'waiting':
+        return '상대 참가 대기';
+      case 'started':
+        return onlineMatch.battle ? '대전 시작' : '대전 상태 동기화 중';
+      case 'opponent-left':
+        return '상대가 방을 나갔습니다.';
+      case 'closed':
+        return '연결을 종료했습니다.';
+      case 'error':
+        return '연결 오류' + (detail ? ': ' + detail : '');
+      case 'idle':
+        return '연결 대기';
+    }
+  }
+
+  function syncRoomCodeInput(): void {
+    const visible = session.screen === 'pvpLobby';
+    roomCodeInput.hidden = !visible;
+    if (!visible) roomCodeInput.blur();
+  }
+
+  function beginCreateRoom(): void {
+    const entry = session.selectedPvpEntry;
+    if (!entry) return;
+    if (!relayUrl) {
+      session.setPvpMessage('공개 relay 주소가 아직 설정되지 않았습니다.');
+      return;
+    }
+    session.setPvpMessage('방 생성 연결 중');
+    onlineMatch.create(entry.loadout);
+  }
+
+  function beginJoinRoom(): void {
+    const entry = session.selectedPvpEntry;
+    const code = roomCodeInput.value.trim().toUpperCase();
+    roomCodeInput.value = code;
+    if (!entry) return;
+    if (!isRoomCode(code)) {
+      session.setPvpMessage('방 코드 6자리를 입력하세요.');
+      roomCodeInput.focus();
+      return;
+    }
+    if (!relayUrl) {
+      session.setPvpMessage('공개 relay 주소가 아직 설정되지 않았습니다.');
+      return;
+    }
+    session.setPvpMessage('방 참가 연결 중');
+    onlineMatch.join(code, entry.loadout);
+  }
+
+  function activateSession(id: string): void {
+    const shouldCloseRelay = (id === 'pvp:back' || id === 'pvp:leave') && onlineMatch.role !== null;
+    if (shouldCloseRelay) onlineMatch.close();
+    session.activate(id);
+    if (id === 'pvp:create') beginCreateRoom();
+    else if (id === 'pvp:join') beginJoinRoom();
+    syncRoomCodeInput();
+  }
+
+  roomCodeInput.addEventListener('input', () => {
+    roomCodeInput.value = roomCodeInput.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+  });
+  roomCodeInput.addEventListener('keydown', (event) => {
+    event.stopPropagation();
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      beginJoinRoom();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      activateSession('pvp:back');
+    }
+  });
+  syncRoomCodeInput();
 
   // 배틀↔메타 화면 전환 감지(전환 시 연출 잔상 정리).
   let previousScreen = session.screen;
@@ -64,8 +175,8 @@ function bootstrap(): void {
         audio.play('rewardSelect');
         session.activate('reward:reroll');
       }
-    } else if (session.screen === 'pvpSelect' && event.key === 'Escape') {
-      session.activate('pvp:back');
+    } else if ((session.screen === 'pvpSelect' || session.screen === 'pvpLobby' || session.screen === 'onlineBattle') && event.key === 'Escape') {
+      activateSession(session.screen === 'onlineBattle' ? 'pvp:leave' : 'pvp:back');
     }
   });
 
@@ -90,7 +201,7 @@ function bootstrap(): void {
     const id = hitTestSession(canvas, session, x, y);
     if (!id) return;
     if (id.startsWith('reward:')) selectReward(id);
-    else session.activate(id);
+    else activateSession(id);
   });
 
   let previousRenderTimeMilliseconds = performance.now();
@@ -101,18 +212,31 @@ function bootstrap(): void {
 
     update(fixedDeltaSeconds) {
       const playerInput = keyboard.consumeCommand();
-      const wasBattle = session.screen === 'battle';
+      const wasRunBattle = session.screen === 'battle';
+      const onlineBattleActive = session.screen === 'onlineBattle' && onlineMatch.battle !== null;
 
-      session.step(playerInput, fixedDeltaSeconds);
-
-      // 배틀 스텝에서 뱉은 연출 이벤트만 소비한다(비-배틀 화면에서는 스텝이 안 돌아 events 가 안 갱신됨).
-      if (wasBattle) {
-        consumeSimulationEvents(effects, session.battle.events, (cue, strength) => audio.play(cue, strength));
-
-        // 승패 효과음 — 배틀이 이번 스텝에 결착났을 때 1회.
-        if (!battleFinishHandled && session.battle.phase === 'finished') {
-          audio.play(session.battle.winnerIndex === PLAYER_INDEX ? 'win' : 'lose');
-          battleFinishHandled = true;
+      if (onlineBattleActive) {
+        onlineMatch.step(playerInput, fixedDeltaSeconds);
+        const battle = onlineMatch.battle;
+        // host는 매 tick을, guest는 새 snapshot을 적용한 tick만 소비한다. 같은 이벤트의 60Hz 중복 재생을 막는다.
+        const consumeEvents = onlineMatch.role === 'host' || onlineMatch.consumeSnapshotAccepted();
+        if (battle && consumeEvents) {
+          consumeSimulationEvents(effects, battle.events, (cue, strength) => audio.play(cue, strength));
+          if (!battleFinishHandled && battle.phase === 'finished') {
+            const localIndex = onlineMatch.role === 'guest' ? 1 : 0;
+            audio.play(battle.winnerIndex === localIndex ? 'win' : 'lose');
+            battleFinishHandled = true;
+          }
+        }
+      } else {
+        session.step(playerInput, fixedDeltaSeconds);
+        // 런 배틀 스텝에서 뱉은 연출 이벤트만 소비한다(비-배틀 화면에서는 events 가 안 갱신됨).
+        if (wasRunBattle) {
+          consumeSimulationEvents(effects, session.battle.events, (cue, strength) => audio.play(cue, strength));
+          if (!battleFinishHandled && session.battle.phase === 'finished') {
+            audio.play(session.battle.winnerIndex === PLAYER_INDEX ? 'win' : 'lose');
+            battleFinishHandled = true;
+          }
         }
       }
 
@@ -126,7 +250,7 @@ function bootstrap(): void {
       }
 
       if (session.screen !== previousScreen) {
-        if (session.screen === 'battle') {
+        if (session.screen === 'battle' || session.screen === 'onlineBattle') {
           clearEffects(effects);
           battleFinishHandled = false;
         }
@@ -139,10 +263,15 @@ function bootstrap(): void {
       const renderDeltaSeconds = Math.min(0.1, (nowMilliseconds - previousRenderTimeMilliseconds) / 1000);
       previousRenderTimeMilliseconds = nowMilliseconds;
 
-      const onBattle = session.screen === 'battle';
-      const runHud = onBattle ? runHudFor(session.run.build, session.run.battleNumber) : undefined;
-      const visuals = onBattle ? battleVisualsFor(session.run.build) : undefined;
-      renderer.draw(session.battle, effects, renderDeltaSeconds, runHud, visuals);
+      const onRunBattle = session.screen === 'battle';
+      const onlineBattle = session.screen === 'onlineBattle' ? onlineMatch.battle : null;
+      const runHud = onRunBattle ? runHudFor(session.run.build, session.run.battleNumber) : undefined;
+      const visuals = onRunBattle
+        ? battleVisualsFor(session.run.build)
+        : onlineBattle
+          ? onlineBattleVisualsFor(session.selectedPvpEntry, onlineMatch.role)
+          : undefined;
+      renderer.draw(onlineBattle ?? session.battle, effects, renderDeltaSeconds, runHud, visuals);
       drawSessionOverlay(overlayContext, canvas, session);
       drawMuteButton(overlayContext, audio.isMuted());
     },
@@ -174,6 +303,15 @@ function battleVisualsFor(build: RunBuild): BattleVisualContext {
   };
 }
 
+/** 온라인 대전에서는 내 출전 세트만 index(host=0, guest=1)에 표시한다. 상대 외형은 match-start loadout 확장 범위다. */
+function onlineBattleVisualsFor(
+  entry: PvpEntryView | null,
+  role: 'host' | 'guest' | null,
+): BattleVisualContext | undefined {
+  if (!entry || !role) return undefined;
+  const visual = { setTag: entry.setTag, setCompleted: entry.completedSet };
+  return { beyblades: role === 'host' ? [visual, undefined] : [undefined, visual] };
+}
 function drawMuteButton(context: CanvasRenderingContext2D, muted: boolean): void {
   context.save();
   context.fillStyle = muted ? 'rgba(60, 40, 40, 0.9)' : 'rgba(38, 48, 74, 0.9)';

@@ -6,15 +6,15 @@
 - **현재 담당:** Codex (Claude의 월간 사용량 한도로 인계받음)
 - **Claude 제한 해제 예정 시각:** `[UNSUPPORTED]` — 마지막 메시지는 "monthly spend limit"만 표시했고, 복귀 시각을 제공하지 않았다. 다음 Claude 제한 메시지에 시각이 있으면 이 줄에 기록한다.
 - **Codex 복귀 가능 시각:** 현재 세션에서 인계 시 기입.
-- **브랜치:** s2-run (S3 Task 5a Canvas lobby/session 작성됨, 커밋 직전; Task 4 `f477625`; Task 3b `7c501d2`; Task 3a `8331e5c`). remote 있음, **push 금지**.
-- **트리:** Task 5a 코드·로그·바통 기록을 같은 컴파일 조각으로 커밋 예정 (Codex 확인: 2026-07-27).
+- **브랜치:** s2-run (S3 Task 5b main/input/online handoff 작성됨, 커밋 직전; Task 5a `1ab6804`; Task 4 `f477625`; Task 3b `7c501d2`). remote 있음, **push 금지**.
+- **트리:** Task 5b 코드·로그·바통 기록을 같은 컴파일 조각으로 커밋 예정 (Codex 확인: 2026-07-27).
 
 ## 진행 중 작업
-- **Codex S3 Task 5a 작성됨, 커밋 직전:** 출전 선택→Canvas 대기실과 PvpLoadout 스냅샷을 관측했다. 다음은 Task 5b native 방 코드 입력·OnlineClient/main 고정 틱 통합이다. 공개 Cloudflare Worker URL은 PM 계정 작업으로 미설정이다.
+- **Codex S3 Task 5b 작성됨, 커밋 직전:** main 고정 틱·native 6자리 input·host/guest OnlineMatch handoff를 추가했다. 다음은 로컬 사람 브라우저 2탭→PM 공개 Worker/Pages endpoint 배선이다.
 
 ## 다음 작업 큐 (우선순위 순, 각 완료 기준 포함)
 1. **[PM 게이트] STRIKE 가시화 재플레이 판정** — PM이 `npm run dev`로 STRIKE 세트 완성 타격이 "확 깎인다"로 읽히는지 확인. 과하거나 부족하면 튜닝값(`src/render/effects.ts`의 SPIN_LOSS_REFERENCE=6, 드레인/rate, 팝업 상한·폰트 범위) 조정. PM 부재면 큐로 두고 아래 항목 먼저.
-2. **S3 실시간 PvP 넷코드** — Task 1~4와 Task 5a(출전 선택·Canvas 대기실)까지 로컬 소스가 있다. 다음은 Task 5b(native 방 코드 입력·main 통합) → PM 공개 Worker 배포·두 브라우저 실증이다. 완료 기준: 브라우저 2탭이 실제로 붙어 한 판 종료까지. 킬 스위치 8/2 23:00(그때까지 안 붙으면 로컬 2인 대전으로 강등). **결정론 계층(src/game)을 흔들지 말 것** — 입력만 주고받고 물리는 host가 단독 계산.
+2. **S3 실시간 PvP 넷코드** — Task 1~5b(프로토콜·coordinator·relay·browser client·Canvas lobby·main handoff)까지 로컬 소스가 있다. 다음은 로컬 사람 브라우저 2탭 실증 → PM 공개 Worker 배포·Pages endpoint 배선이다. 완료 기준: 브라우저 2탭이 실제로 붙어 한 판 종료까지. 킬 스위치 8/2 23:00(그때까지 안 붙으면 로컬 2인 대전으로 강등). **결정론 계층(src/game)을 흔들지 말 것** — 입력만 주고받고 물리는 host가 단독 계산.
 3. **모바일 터치 조작** — 현재 키보드(방향키/Space)+클릭 기반이라 폰에서 막힌다. 가상 스틱/버튼 등으로 터치 조작 추가. 완료 기준: 폰 브라우저에서 런 진행 가능(심사자 폰 접속 대비, 계획서 V1).
 4. **제출물** — 게임 소개·실행 방법 PDF(#3), AI 활용 기술 PDF(#4), 30~60초 영상. 구간 S5(8/8~9).
 
@@ -54,3 +54,9 @@
 - 코드: `pvpLobby`·`selectedPvpEntry`·PvpLoadout 스냅샷, Canvas 대기실과 뒤로 가기 동선을 추가했다. `smoke:pvp-lobby`는 다음 package 기록 조각에 추가된다.
 - 회귀 관측: `npm run build` 종료 코드 0, `smoke:run` 동일 시드 8/8, `smoke:online-client` 12/12 (2026-07-27).
 - 다음: Task 5b. native 6자리 code input, relay URL 환경 해석, OnlineClient callback → OnlineBattle/main fixed loop을 연결한다. 연결된 브라우저 화면과 공개 Worker는 아직 미관측이다.
+### 2026-07-27 — Codex S3 Task 5b
+- red 관측: onlineMatch module 부재, `enterOnlineBattle` 부재, `resolveRelayUrl` export 부재를 각각 테스트가 잡았다. `npm run build`는 `ImportMeta.env` 타입 제외와 DOM closure narrowing 문제를 지적했고, 원인별 최소 수정 뒤 build 종료 코드 0을 관측했다.
+- 코드: main에서 host만 onlineMatch fixed tick 물리·snapshot을 보내고 guest는 입력·신규 snapshot만 처리한다. native 6자리 room input과 Pages relay URL 차단 경계도 추가했다. `src/game`은 미수정이다.
+- 회귀 관측: online match 11/11, online client 15/15, lobby 8/8, run 동일 시드 8/8, local relay 6/6 (2026-07-27).
+- 현재 제한: Codex 내장 browser 초기화가 `Cannot redefine property: process`로 중단돼 실제 Canvas/2탭 UI는 아직 미관측이다. 로컬 relay는 127.0.0.1:8787, Vite는 127.0.0.1:5173에서 listener를 관측했다.
+- 다음: 사람이 로컬 두 탭에서 create→code→join→움직임→finish→leave를 확인한다. 이후 PM Cloudflare Worker deploy와 Pages의 public `VITE_RELAY_URL` build를 수행한다.

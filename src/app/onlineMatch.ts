@@ -36,6 +36,8 @@ export interface OnlineMatch {
   create(loadout: PvpLoadout): void;
   join(code: string, loadout: PvpLoadout): void;
   step(input: InputCommand, deltaSeconds: number): OnlineBattleUpdate;
+  /** guest가 새 host snapshot을 적용한 직후에만 true를 돌려준다. */
+  consumeSnapshotAccepted(): boolean;
   close(): void;
 }
 
@@ -49,6 +51,7 @@ export function createOnlineMatch(options: OnlineMatchOptions): OnlineMatch {
   let battle: OnlineBattle | null = null;
   let client: OnlineClient | null = null;
   let roomCode: string | null = null;
+  let snapshotAccepted = false;
 
   function report(status: OnlineMatchStatus, detail?: string): void {
     options.events.onStatus(status, detail);
@@ -59,6 +62,7 @@ export function createOnlineMatch(options: OnlineMatchOptions): OnlineMatch {
     role = nextRole;
     battle = null;
     roomCode = null;
+    snapshotAccepted = false;
 
     client = options.clientFactory({
       onStatus(status, detail) {
@@ -89,7 +93,7 @@ export function createOnlineMatch(options: OnlineMatchOptions): OnlineMatch {
         battle?.receiveRemoteInput(tick, input);
       },
       onState(tick, snapshot) {
-        battle?.receiveSnapshot(tick, snapshot);
+        if (battle?.receiveSnapshot(tick, snapshot)) snapshotAccepted = true;
       },
       onOpponentLeft() {
         report('opponent-left');
@@ -129,12 +133,19 @@ export function createOnlineMatch(options: OnlineMatchOptions): OnlineMatch {
       return update;
     },
 
+    consumeSnapshotAccepted(): boolean {
+      const accepted = snapshotAccepted;
+      snapshotAccepted = false;
+      return accepted;
+    },
+
     close(): void {
       client?.close();
       client = null;
       battle = null;
       role = null;
       roomCode = null;
+      snapshotAccepted = false;
       report('closed');
     },
   };

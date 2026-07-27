@@ -29,12 +29,39 @@
         padding: 16px 0;
         box-sizing: border-box;
       }
+      #game-shell {
+        position: relative;
+        width: min(960px, 100%);
+      }
       canvas {
+        display: block;
+        width: 100%;
         background: #0b0d14;
         border-radius: 8px;
-        max-width: 100%;
         height: auto;
         touch-action: none;
+      }
+      #room-code-input {
+        position: absolute;
+        left: 50%;
+        top: 56%;
+        transform: translateX(-50%);
+        box-sizing: border-box;
+        width: min(240px, calc(100% - 40px));
+        height: 38px;
+        padding: 0 12px;
+        border: 1px solid #6d79a5;
+        border-radius: 4px;
+        background: #141a2a;
+        color: #edf2ff;
+        font: 700 16px "Segoe UI", "Malgun Gothic", sans-serif;
+        letter-spacing: 2px;
+        text-align: center;
+        text-transform: uppercase;
+      }
+      #room-code-input:focus {
+        outline: 2px solid #66c7f4;
+        outline-offset: 2px;
       }
       .help {
         font-size: 13px;
@@ -53,7 +80,20 @@
   </head>
   <body>
     <div id="app">
-      <canvas id="game-canvas" width="960" height="620"></canvas>
+      <div id="game-shell">
+        <canvas id="game-canvas" width="960" height="620"></canvas>
+        <input
+          id="room-code-input"
+          type="text"
+          inputmode="text"
+          maxlength="6"
+          autocomplete="off"
+          spellcheck="false"
+          aria-label="온라인 대전 방 코드 6자리"
+          placeholder="방 코드 6자리"
+          hidden
+        />
+      </div>
       <div class="help">
         상대를 밀어 회전력을 깎는 팽이 배틀 — <b>12판을 이기면 런 완주</b>. 승리마다 파츠 3택 1로 강해진다.<br />
         <kbd>← ↑ → ↓</kbd> / <kbd>W A S D</kbd> 이동 &nbsp;·&nbsp;

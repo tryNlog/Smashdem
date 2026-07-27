@@ -1352,3 +1352,30 @@ Cloudflare 런타임에 닿기 전에 방의 정원(2명), host/guest 권한, �
 1. Canvas 대기실은 연결 상태를 표시할 경계만 준비했다. 방 코드 native input, `VITE_RELAY_URL` 해석, `OnlineClient` callback 연결은 다음 Task 5b다.
 2. 대기실 UI의 실제 브라우저 판독은 아직 없다. browser canvas 검토는 Task 5b의 두 탭 수동 시험과 함께 기록한다.
 3. 공개 Cloudflare Worker endpoint는 PM 계정 작업으로 미설정이다.
+---
+
+## S3 실시간 PvP — main loop, room input, online battle handoff (Codex Task 5b)
+
+**날짜:** 2026-07-27
+**담당:** Codex
+**근거:** `docs/superpowers/plans/2026-07-27-realtime-pvp.md` Task 5, host-only physics coordinator(`src/app/onlineBattle.ts`), URL 선택 테스트(`tools/onlineClient.ts`).
+
+### 목표
+Canvas 대기실을 실제 `OnlineClient`/`OnlineMatch`와 연결하되, 런의 bot simulation을 온라인 전투에 재사용하지 않는다. host는 물리와 snapshot을, guest는 입력과 새 snapshot만 다룬다.
+
+### 실제 작업
+- `src/app/onlineMatch.ts`를 추가했다. relay callback을 방 코드·상태 문구·host/guest `OnlineBattle`로 번역한다. `match-start` loadout은 PvP context(강화 0, 세트 효과 유지)로 재도출한다.
+- guest snapshot의 effect/audio 중복을 피하려고 `consumeSnapshotAccepted()` 1회 소비 신호를 추가했다. host는 매 60Hz tick event를 소비하고 guest는 새 snapshot 적용 tick만 소비한다.
+- `src/main.ts`에서 `VITE_RELAY_URL`이 있으면 해당 URL, `localhost`에서는 `ws://127.0.0.1:8787`, 그 외 Pages 환경에서는 연결 불가 상태를 선택한다. 공개 endpoint가 없는 Pages에서 `ws://` mixed-content 연결을 열지 않는다.
+- `onlineBattle` 화면을 런의 `battle`과 분리했다. match 시작 뒤 `session.step()`을 호출하지 않고 `onlineMatch.step()`만 호출한다. 나가기/상대 이탈은 선택한 출전 팽이를 보존한 대기실로 돌아간다.
+- `index.html`에 대기실 전용 native 6자리 input을 추가했다. 입력은 대문자 영숫자만 남기고 Enter로 참가를 시도한다.
+
+### 실행 관측
+- red: `tools/onlineMatch.ts`는 controller module 부재로 `UNRESOLVED_IMPORT`, `pvpLobby.ts`는 `enterOnlineBattle is not a function`, `onlineClient.ts`는 `resolveRelayUrl` export 부재를 각각 냈다.
+- build 중 `ImportMeta.env`/DOM input 타입 오류를 관측했다. 원인은 `tsconfig.json`의 `types: []`와 closure에서의 `HTMLElement | null` 재확장이었다. `ImportMeta` 교차 타입과 명시적 `HTMLInputElement` 별칭 후 build 출력은 종료 코드 0이었다.
+- `npm run smoke:online-match` 11/11, `smoke:online-client` 15/15, `smoke:pvp-lobby` 8/8, `smoke:run` 동일 시드 8/8, `smoke:relay-local` 6/6을 2026-07-27 콘솔에서 관측했다.
+
+### 미해결 / 다음 인계
+1. 자동 브라우저 검토는 Codex 내장 browser 초기화가 `Cannot redefine property: process`로 중단돼 수행하지 못했다. 이는 게임 console 오류의 관측이 아니다. 실제 화면·두 탭 동작은 별도 사람 브라우저로 확인 필요.
+2. 공개 Cloudflare Worker URL이 없다. GitHub Pages에서는 `VITE_RELAY_URL` 미설정 시 온라인 연결이 차단된 상태로 문구만 보인다. PM Cloudflare 계정에서 deploy 후 Pages build에 public `wss://` URL을 주입해야 한다.
+3. room code collision/TTL/reconnect/host authority transfer는 아직 없다. `[UNSUPPORTED]` 운영 정책·수치는 NAN 범위 밖이며 host 이탈은 대기실 복귀만 한다.

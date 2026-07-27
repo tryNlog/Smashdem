@@ -103,10 +103,12 @@ function main(): void {
   if (!hostSnapshot) throw new Error('host snapshot missing');
   clients[1].events.onState(hostSnapshot.tick, hostSnapshot);
   expect(guest.battle?.tick === hostSnapshot.tick, 'guest must adopt a newer host snapshot');
+  expect(guest.consumeSnapshotAccepted(), 'guest must expose exactly one accepted snapshot signal for effects');
+  expect(!guest.consumeSnapshotAccepted(), 'accepted snapshot signal must be consumed once');
   clients[0].events.onOpponentLeft();
   expect(statuses.includes('opponent-left'), 'opponent departure must reach UI state');
 
-  console.log('Online match controller cases: 9/9 observed');
+  console.log('Online match controller cases: 11/11 observed');
 }
 
 main();
