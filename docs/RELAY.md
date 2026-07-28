@@ -6,7 +6,7 @@
 - **현재 담당:** Codex (Claude의 월간 사용량 한도로 인계받음)
 - **Claude 제한 해제 예정 시각:** `[UNSUPPORTED]` — 마지막 메시지는 "monthly spend limit"만 표시했고, 복귀 시각을 제공하지 않았다. 다음 Claude 제한 메시지에 시각이 있으면 이 줄에 기록한다.
 - **Codex 복귀 가능 시각:** 현재 세션에서 인계 시 기입.
-- **브랜치:** `s2-run`; 최신 기능 코드 커밋 `ce03cba`는 모바일 방향 래치이며, touch source/UI는 `7f8bf9f`·`40a85cd`에 있다. remote `origin`은 있고, **push 금지**.
+- **브랜치:** `s2-run`; 최신 기능 코드 커밋 `ec1100c`는 모바일 버스트 방향 스냅샷이며, 방향 래치는 `ce03cba`, touch source/UI는 `7f8bf9f`·`40a85cd`에 있다. remote `origin`은 있고, **push 금지**.
 - **트리:** 작업 시작 전 `git log --oneline -5`·`git status`로 코드·문서 커밋을 함께 확인한다. remote push는 PM 전용이다.
 ## 진행 중 작업
 - **S3 공개 relay 배선:** `1ad9f62`에 GitHub Actions `VITE_RELAY_URL` 주입, direct Vite env access, local relay build smoke, PM Cloudflare/Pages 절차가 있다. 공개 Worker endpoint와 Canvas 두 브라우저 관찰은 PM 게이트다.
@@ -18,6 +18,12 @@
 4. **제출물** — 게임 소개·실행 방법 PDF(#3), AI 활용 기술 PDF(#4), 30~60초 영상. 구간 S5(8/8~9).
 
 ## 인계 로그 (append-only, 최신이 위)
+### 2026-07-28 — Codex mobile burst direction snapshot
+- PM 관찰: 터치에서 가리킨 방향과 다른 쪽으로 버스트가 나가는 듯하고 전체 조작이 불안정하다.
+- 원인 추적: 기존 `handleBurst`는 boolean만 큐에 저장했고, main의 다음 60Hz tick에서 `consumeCommand()`가 당시의 최신 스틱 방향을 함께 반환했다. 오른쪽 스틱→버스트 탭→왼쪽 스틱 이동 순서의 red는 `burst must use the held direction at button press...` 오류를 냈다.
+- 코드: `ec1100c`는 터치 버스트 탭 시 `moveX/moveY`를 저장하고, 다음 한 tick의 burst command만 그 값을 반환한다. 다음 tick부터는 최신 스틱 방향을 쓴다. `src/game/`·밸런스 상수·네트워크 protocol은 수정하지 않았다.
+- 관측: `npm run smoke:touch-input` 19/19, `npm run build` 종료 코드 0, `npm run smoke:run` 동일 시드 8/8 (2026-07-28 콘솔).
+- 남는 분리 항목: 고속 역방향 관성·충돌 후 속도와 버스트 임펄스의 벡터 합은 별도 물리 설계다. 실제 모바일 재시험에서 계속 보이면 그 사례를 재현해 PM 판단 없이 밸런스를 바꾸지 않는다. 현재 기기 감각은 `[UNSUPPORTED]`이다.
 ### 2026-07-27 — Codex mobile direction latch
 - PM 관찰: 모바일에서 빠른 방향 전환이 둔하게 느껴지고, 가상 스틱을 길게 유지할 때 미세한 손가락 이동이 입력을 흔든다.
 - 원인 추적: `src/app/touchInput.ts`의 기존 구현은 매 `pointermove`마다 22% dead zone 안이면 즉시 중립, 밖이면 축 부호를 즉시 갱신했다. `tools/touchInput.ts`에서 오른쪽 홀드 후 `(53, 59)` 드리프트가 중립이 되는 red 관측을 남겼다.

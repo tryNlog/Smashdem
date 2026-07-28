@@ -1478,3 +1478,26 @@ GitHub Pages의 public build가 PM이 등록한 `VITE_RELAY_URL`을 받아 `wss:
 ### 미해결 / 다음 인계
 1. 실제 모바일의 손가락 이동 거리·safe area·브라우저별 pointer event 빈도에서 22%/32%가 적절한지는 `[UNSUPPORTED]`이다. 공개 Pages에 `ce03cba`를 push한 뒤 사람 기기에서 오른쪽 홀드→미세 드리프트→반대/직각 전환을 확인한다.
 2. 테스트는 `InputCommand` 변환 경계만 다룬다. Canvas 배치·실제 타격 중 조작 감각은 자동 도구로 관측하지 못했다.
+---
+
+## S3 모바일 버스트 방향 스냅샷 (Codex)
+
+**날짜:** 2026-07-28
+**담당:** Codex
+**근거:** PM의 모바일 관찰: 터치에서 선택한 방향과 다른 쪽으로 버스트가 나가는 듯하며 조작이 불안정함.
+
+### 목표
+버스트 버튼의 pointerdown과 다음 60Hz simulation tick 사이에 이동 스틱이 바뀌어도, 탭 시점의 터치 방향으로 해당 버스트를 처리한다. 다음 tick의 일반 이동은 최신 스틱 방향을 유지한다.
+
+### 원인 추적과 red 관측
+- 기존 `src/app/touchInput.ts`의 `handleBurst`는 `burstQueued = true`만 남겼다. `consumeCommand()`는 다음 tick의 현재 `moveX/moveY`를 반환했다.
+- `tools/touchInput.ts`에 오른쪽 스틱→버스트 탭→왼쪽 스틱 이동을 같은 tick 이전에 만드는 사례를 추가했다. 변경 전 `npm run smoke:touch-input`은 `burst must use the held direction at button press even when the stick moves before the next tick` 오류로 종료 코드 1이었다.
+
+### 코드와 관측
+- `handleBurst`가 탭 시점의 `moveX/moveY`를 저장한다. `consumeCommand()`은 burst가 큐에 있을 때만 저장 방향을 반환하고 즉시 초기화한다. 다음 tick은 최신 스틱 방향을 반환한다.
+- `src/game/simulation.ts`의 버스트 방향 규칙은 수정하지 않았다. 전달된 입력이 0일 때 속도 방향으로 fallback하는 기존 규칙도 유지한다.
+- `npm run smoke:touch-input` → `Touch input cases: 19/19 observed`; `npm run build` → 종료 코드 0; `npm run smoke:run` → 동일 시드 8/8 일치 (2026-07-28 콘솔 측정).
+
+### 미해결 / 다음 인계
+1. 충돌이나 큰 역방향 관성이 버스트 임펄스보다 큰 경우 실제 궤적은 입력과 달라질 수 있다. 이 작업은 터치 event↔fixed tick 경계만 바꿨으므로, 해당 사례는 `[UNSUPPORTED]`이며 별도 물리 재현이 필요하다.
+2. 실제 모바일에서 오른쪽 홀드→버스트 탭→손가락 이동을 여러 번 시험한 감각은 자동 smoke로 관측하지 못했다. 공개 Pages에 `ec1100c`를 push한 뒤 사람 기기에서 재확인한다.
