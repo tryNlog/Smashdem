@@ -1,3 +1,4 @@
+> **Control/guard supersession — 2026-07-28:** Read `docs/superpowers/specs/2026-07-28-mouse-aim-guard-matchup-design.md` §8 before using this document. Its mouse-aim input, unlimited matchup guard, counter, bot, equipment, timeout, and evidence rules override conflicting text below. This document's historical guard-resource wording is not an implementation requirement.
 # Character Arena PvP V2 Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
