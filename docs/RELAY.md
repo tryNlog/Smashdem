@@ -4,7 +4,7 @@
 
 ## 현재 상태 (last updated: 2026-07-28, by Codex)
 - **현재 담당:** Codex (PM 승인에 따라 캐릭터 전환 명세를 보강 중)
-- **전환 기준:** `docs/superpowers/specs/2026-07-28-character-arena-design.md`가 캐릭터 전투의 현재 권위 문서다. 새 전투 코드는 아직 시작하지 않았다.
+- **전환 기준:** `docs/superpowers/specs/2026-07-28-character-arena-design.md`가 캐릭터 전투의 현재 권위 문서다. 기준 문서 커밋은 `2f0c125`이며, 새 전투 코드는 PM의 이 명세 검토 뒤에만 시작한다.
 - **로컬 복귀선:** `spinner-baseline-2026-07-28` → `f97bca1` (원격 전송 금지). 8/2 23:00에는 명세 §8.2의 4개 관측으로 캐릭터 후보/태그 기준을 PM이 선택한다.
 - **Claude 제한 해제 예정 시각:** `[UNSUPPORTED]` — 마지막 메시지는 "monthly spend limit"만 표시했고, 복귀 시각을 제공하지 않았다. 다음 Claude 제한 메시지에 시각이 있으면 이 줄에 기록한다.
 - **Codex 복귀 가능 시각:** 현재 세션에서 인계 시 기입.
