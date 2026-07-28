@@ -1,6 +1,6 @@
 # Mouse Aim and Matchup Guard Design
 
-**Status:** Draft · PM design approval recorded 2026-07-28; written-spec review pending.
+**Status:** PM-approved 2026-07-28 · written-spec review reconciled in §8; follow-up amendments applied to §8.1 (reset-freeze movement) and §8.6 (explicit bot decision order).
 
 **Authority:** This document updates the character-arena input and guard contract in `2026-07-28-character-arena-design.md`. It supersedes that document's desktop bindings, guard-resource rules, guard-specific bot order, guard-specific equipment effects, guard time-limit tiebreaker, and guard acceptance evidence. It supersedes Core Plan Tasks 2–4 where their input interface, guard state, guard smoke, or timeout rules differ, the corresponding single-player equipment/bot/render rules, and PvP v2 input-frame shape. It does not replace the 12-battle run, original-character/IP boundary, deterministic simulation boundary, or local recovery tag. **Within this document, §8 is the normative reconciliation section when an earlier paragraph is ambiguous.**
 
@@ -168,7 +168,7 @@ This section resolves the written-spec review findings dated 2026-07-28. It gove
 
 `queuedAction` remains one slot. A non-repeated left-click, `E`, or `Space` edge replaces an earlier unconsumed action; the simulation consumes at most one queued action per fixed tick. Right-click is held state only and never competes for that slot.
 
-If a combatant is `guarding` and receives an accepted attack, skill, or valid non-zero-direction dash action, that action ends `guarding` immediately and becomes the active action. It cannot block and begin an action in the same tick. When action recovery ends, a still-held right mouse button re-enters `guarding` on the next eligible fixed tick. Staggered and reset-frozen combatants reject every action and guard start; keyboard movement remains available under the rules in §5.
+If a combatant is `guarding` and receives an accepted attack, skill, or valid non-zero-direction dash action, that action ends `guarding` immediately and becomes the active action. It cannot block and begin an action in the same tick. When action recovery ends, a still-held right mouse button re-enters `guarding` on the next eligible fixed tick. Staggered and reset-frozen combatants reject every action and guard start. Keyboard movement remains available only while staggered, per §5; a reset-frozen combatant also rejects movement input and holds zero velocity until the freeze ends, matching the base contract's zero-velocity central reset.
 
 ### 8.2 Aim, facing, and frontal geometry
 
@@ -207,7 +207,17 @@ The following replacements are mandatory for the equipment/run plan:
 
 ### 8.6 Bot migration
 
-`CharacterBotTuning.guardReserve` is removed. At a decision interval, a bot may hold guard only against an incoming frontal normal attack or weapon skill. Against an incoming dash it chooses lateral/center recovery movement rather than guard. The remaining priority is rim recovery, live counter attack, anti-guard dash, weapon skill, normal attack, then approach/retreat. Bot action frames derive `aimStep` directly from deterministic state/seeded noise; they do not have mouse coordinates.
+`CharacterBotTuning.guardReserve` is removed. A bot may hold guard only against an incoming frontal normal attack or weapon skill; against an incoming dash it chooses lateral/center evasion movement rather than guard. The full decision order at each deterministic interval is:
+
+1. rim danger and recovery toward center;
+2. incoming-threat response — hold guard against a frontal normal attack or weapon skill, evade an incoming dash with lateral/center movement;
+3. a live counter opportunity, then queue `attack`;
+4. an opponent currently guarding, then queue `dash` when available;
+5. a weapon-skill distance and cooldown condition, then queue `skill`;
+6. normal-attack range, then queue `attack`;
+7. otherwise approach or retreat to preferred distance.
+
+Rim recovery keeps its former first position, so a rim-endangered bot recovers toward center before it guards or evades. Bot action frames derive `aimStep` directly from deterministic state/seeded noise; they do not have mouse coordinates.
 
 ### 8.7 Required smoke additions
 
