@@ -101,3 +101,10 @@
 - Observations: `npm run smoke:character-state` printed `Character state cases: 5/5 observed`; `npm run build` exited 0; `npm run smoke:run` printed legacy same-seed `8/8` (2026-07-28 console).
 - `[UNSUPPORTED]`: character numeric suitability, including migrated `90`, `0.30`, `150`, `0.6`, guard cone cosine, default stats, and action profile values in `src/game/character/balance.ts`, has no character-harness measurement yet.
 - Next: Core Plan Task 2 may add the desktop action-input boundary. This Task 1 commit ID is recorded in `.superpowers/sdd/2026-07-28-character-arena-core/task-1-report.md` after the local commit. Claude return time remains `[UNSUPPORTED]`; Codex return time is this task handoff.
+
+### 2026-07-28 — Codex Core Plan Task 1 review fix round 1/5
+- Reviewer finding addressed: `positionCombatantsAtSpawn()` now rejects fewer or more than two combatants before position assignment; `smoke:character-state` observes both failure cases and reports `14/14`.
+- Compatibility: `CharacterBattlePhase` changed from `active` to `fighting` to match Core Plan Task 3's approved lifecycle check.
+- Factory smoke now observes maximum guard, `ready`, exact opposing central spawn coordinates, zero timers/cooldowns, neutral input, and independent random/event clone containers.
+- Observations: `npm run smoke:character-state` 14/14; `npm run build` exit 0; legacy `npm run smoke:run` same seed 8/8 (2026-07-28 console). Fix-round local commit ID is in `.superpowers/sdd/2026-07-28-character-arena-core/task-1-report.md` after commit.
+- `[UNSUPPORTED]`: character numeric suitability remains unmeasured; no legacy spinner or new character balance number was changed in this fix.

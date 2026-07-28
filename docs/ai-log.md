@@ -1590,3 +1590,21 @@ GitHub Pages의 public build가 PM이 등록한 `VITE_RELAY_URL`을 받아 `wss:
 ### Human follow-up
 
 - New character actions are not connected to `main.ts`, renderer, network, or touch input in this task. The live spinner session remains the Pages entry point.
+
+---
+
+## Character battle state boundary - review fix round 1/5 (Codex)
+
+**Date:** 2026-07-28
+**Scope:** Task 1 review findings only.
+
+### Changes and evidence
+
+- `positionCombatantsAtSpawn()` now rejects any input length other than two before assigning positions. Its implementation maps index `0` to the negative-X spawn and index `1` to the positive-X spawn, preventing a direct caller from silently overlapping extra combatants.
+- `CharacterBattlePhase` now uses `ready | fighting | finished`, matching Core Plan Task 3's `state.phase === 'fighting'` lifecycle check.
+- `tools/characterState.ts` now observes maximum guard, `ready` phase, exact opposing central spawn coordinates, zero factory timers/cooldowns, neutral input axes, independent cloned PRNG/events, and both fewer-than-two/more-than-two public spawn-helper failures.
+- `npm run smoke:character-state` printed `Character state cases: 14/14 observed`; `npm run build` exited `0`; `npm run smoke:run` printed legacy same-seed `8/8` (2026-07-28 console).
+
+### [UNSUPPORTED] items
+
+- `[UNSUPPORTED]` The existing character numeric suitability record remains unchanged: Task 1 does not add character-harness or human-play measurement for the values in `src/game/character/balance.ts`.

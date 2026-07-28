@@ -14,8 +14,16 @@ export interface CombatantDefinition {
   readonly profile: CombatProfile;
 }
 
+function requireTwoCombatants(combatants: readonly Combatant[]): void {
+  if (combatants.length !== 2) {
+    throw new Error('character battle state requires exactly two combatants');
+  }
+}
+
 function spawnFacing(index: number): Axis {
-  return index === 0 ? 1 : -1;
+  if (index === 0) return 1;
+  if (index === 1) return -1;
+  throw new Error('character battle state requires combatant index 0 or 1');
 }
 
 function createCombatant(index: number, definition: CombatantDefinition): Combatant {
@@ -44,10 +52,13 @@ function createCombatant(index: number, definition: CombatantDefinition): Combat
   };
 }
 
-/** Positions two combatants on deterministic, opposing central spawn points. */
+/** Positions exactly two combatants on deterministic, opposing central spawn points. */
 export function positionCombatantsAtSpawn(combatants: readonly Combatant[]): void {
-  for (const combatant of combatants) {
-    const direction = spawnFacing(combatant.index);
+  requireTwoCombatants(combatants);
+
+  for (let index = 0; index < combatants.length; index += 1) {
+    const combatant = combatants[index]!;
+    const direction = spawnFacing(index);
     combatant.positionX = direction === 1
       ? -Balance.CHARACTER_SPAWN_DISTANCE_FROM_CENTER
       : Balance.CHARACTER_SPAWN_DISTANCE_FROM_CENTER;

@@ -12,7 +12,7 @@ export type CharacterActionState =
   | 'staggered'
   | 'ringOutReset'
   | 'defeated';
-export type CharacterBattlePhase = 'ready' | 'active' | 'finished';
+export type CharacterBattlePhase = 'ready' | 'fighting' | 'finished';
 export type CharacterBattleOutcome = 'none' | 'health' | 'ringOut' | 'timeLimit' | 'draw';
 
 export interface CharacterInputCommand {
