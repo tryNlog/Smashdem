@@ -1774,3 +1774,29 @@ GitHub Pages의 public build가 PM이 등록한 `VITE_RELAY_URL`을 받아 `wss:
 ### Next review boundary
 
 - Review `0efaf93` against Task 2 brief and the mouse-aim/matchup-guard spec before starting Task 3. Task 3 simulation, Task 4 resolution, and session/render wiring remain outside this change.
+
+## 2026-07-28 - Mouse-Aim Combat Core Task 2 review fix round 1: mouse button chords
+
+### Review input and root cause
+
+- Reviewer finding: `src/app/characterInput.ts` used `pointerdown`/`pointerup` for LMB/RMB state. With RMB held, the browser's Pointer Event transition model does not provide a second `pointerdown` for the LMB press or a separate `pointerup` for the RMB release. This leaves the required held-RMB + LMB action path in the mouse-aim spec §8.1/§8.7 unrepresented.
+- Source trace before the change: `handlePointerDown`/`handlePointerUp` at `src/app/characterInput.ts` and their matching listener registration were the only action/guard button-transition path. The fake smoke also used the same incomplete event model.
+
+### Red evidence
+
+- The smoke was changed first to use `mousedown`/`mouseup` and to hold RMB, press LMB, then release RMB while LMB remains held. Before production changes, `npm run smoke:character-input` exited `1` with `Error: holding RMB while LMB is pressed must keep guard held and queue an attack`.
+
+### Code and observed commands
+
+- Commit `ca95c13` changes only Task 2 ownership paths. `handleMouseDown` records button coordinates and queues LMB attack or holds RMB guard; `handleMouseUp` clears only RMB guard. `pointermove` remains the pointer-coordinate update path. No `pointerdown`/`pointerup` listener remains, so the same physical press cannot queue through both event families.
+- Observed (2026-07-28 console): `npm run smoke:character-input` printed `Character pointer input cases: 30/30 observed`; `npm run smoke:touch-input` printed `19/19`; `npm run smoke:character-state` printed `21/21`; `npm run build` exited `0`; `git diff --check` printed no whitespace errors. `npm run smoke:run` was not run because this fix did not modify `src/game/`.
+- Git emitted Windows LF→CRLF warnings while inspecting/committing the two text files. [UNSUPPORTED] Functional relevance is not established by those warnings; command observations above were made before the code commit.
+
+### [UNSUPPORTED]
+
+- The browser canvas/session integration has not supplied live fighter origins or human chord observation. The fake target covers event-to-command conversion only.
+- Existing Task 1 combat constants and Task 3/4 behavior remain outside this fix.
+
+### Next review boundary
+
+- Re-review only `0efaf93..ca95c13` for per-button LMB/RMB transitions, raw-pointer retention, and chord smoke. Task 3/4 and remote push remain outside this fix.
