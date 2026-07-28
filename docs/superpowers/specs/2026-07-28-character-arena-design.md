@@ -157,4 +157,3 @@ Human readability, action feel, and numerical balance remain PM/QA judgments. Au
 - **Scope pressure:** More characters, maps, jumps, or original-game-style modes are excluded until the first generic fighter run and PvP path are observable.
 - **PvP compatibility:** Expanding the input frame changes local and relay tests together; the host-authoritative model remains mandatory.
 - **Mobile:** The current touch input work stays as an input-boundary reference, but action-button layout is deferred until desktop action playtests identify the required controls.
-
