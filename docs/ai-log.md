@@ -1859,3 +1859,28 @@ GitHub Pages의 public build가 PM이 등록한 `VITE_RELAY_URL`을 받아 `wss:
 - scoped re-review 범위 `a5fe6ae..eb21a70`은 두 항목을 ADDRESSED로 기록했고 새 Critical·Important 항목을 보고하지 않았다.
 - controller 재실행: `smoke:character-combat` 27/27, `smoke:run` 동일 시드 8/8, `npm run build` exit 0 (2026-07-28 콘솔).
 - 다음 범위: Task 4가 hit/guard/counter/ring-out/timeout resolution과 byte-equal character smoke를 추가한다.
+## 2026-07-28 — Mouse-Aim Combat Core Task 4: matchup guard resolution
+
+### Goal
+
+- Implement the approved character-core Task 4 boundary only: front/rear guard outcomes, manual counter consumption, guarded dash knockback, ring-out health penalty/reset, timeout tiebreak, and deterministic headless coverage. Equipment, bot, session, renderer, protocol v2, remote configuration, and push remain outside this record.
+
+### TDD red evidence
+
+- Before `src/game/character/combatResolution.ts` existed, the extended `tools/characterCombat.ts` imported its planned exports. `npm run smoke:character-combat` exited `1` with `[UNRESOLVED_IMPORT] Could not resolve '../src/game/character/combatResolution' in tools/characterCombat.ts`.
+
+### Code and observed commands
+
+- Commit `5575878` adds `combatResolution.ts`, wires the Task 3 hit phase in `simulation.ts`, and extends `tools/characterCombat.ts`.
+- Observed from the 2026-07-28 console: `npm run smoke:character-state` → `21/21`; `npm run smoke:character-input` → `30/30`; `npm run smoke:character-combat` → `Character combat cases: 68/68 observed` and `Character scripted byte-equal repeats: 8/8 observed`; `npm run build` exited `0`; `npm run smoke:run` printed legacy run same-seed `8/8`.
+- `src/game/character` static scan for DOM/clock/random APIs printed no matches. `git diff --check` printed no whitespace errors before the code commit.
+
+### [UNSUPPORTED]
+
+- The starting values for normal/skill/dash damage, knockback, 1.60 guard-break multiplier, 0.80-second counter window, 1.35/1.75 counter multipliers, 0.35-second stagger, drag, impulse, and speed cap require character-harness measurement and human play.
+- Ring-out attribution uses another combatant's current `actionHasHit` flag. A longer hit-attribution grace window is not defined by the current character state and needs measured design evidence before it changes.
+- Headless observations do not establish browser canvas feedback, perceived guard readability, or PvP synchronization.
+
+### Next review boundary
+
+- Independently review `5575878` against `docs/superpowers/plans/2026-07-28-mouse-aim-combat-core.md` Task 4 and `docs/superpowers/specs/2026-07-28-mouse-aim-guard-matchup-design.md` §4, §5, §8.2–§8.7 before starting any later queue.
