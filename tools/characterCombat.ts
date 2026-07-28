@@ -9,6 +9,12 @@
 import * as Balance from '../src/game/character/balance';
 import { createCharacterBattleState } from '../src/game/character/battleState';
 import {
+  applyCharacterHit,
+  isWithinGuardCone,
+  resolveCharacterRingOut,
+  resolveCharacterTimeLimit,
+} from '../src/game/character/combatResolution';
+import {
   actionPhase,
   actionTotalSeconds,
   stepCharacterBattle,
@@ -83,6 +89,41 @@ function queueAction(
   });
 }
 
+function prepareHitState(): CharacterBattleState {
+  const state = createFightingState();
+  const attacker = state.combatants[0]!;
+  const defender = state.combatants[1]!;
+  attacker.positionX = 0;
+  attacker.positionY = 0;
+  attacker.facingAimStep = 0;
+  attacker.actionAimStep = 0;
+  defender.positionX = 40;
+  defender.positionY = 0;
+  defender.facingAimStep = 128;
+  return state;
+}
+
+function assertClose(actual: number, expected: number, message: string): void {
+  expect(Math.abs(actual - expected) < 0.000001, message);
+}
+
+function scriptedSnapshot(): string {
+  const state = createFightingState();
+  state.combatants[0]!.positionX = -30;
+  state.combatants[1]!.positionX = 30;
+  for (let tick = 0; tick < 90; tick += 1) {
+    const first: Partial<CharacterInputCommand> = tick === 0
+      ? { queuedAction: 'attack', actionAimStep: 0, aimStep: 0 }
+      : tick === 30
+        ? { queuedAction: 'dash', dashMoveX: 1, dashMoveY: 0, aimStep: 0 }
+        : { moveX: tick < 20 ? 1 : 0, aimStep: 0 };
+    const second: Partial<CharacterInputCommand> = tick < 25
+      ? { guard: true, aimStep: 128 }
+      : { moveX: -1, aimStep: 128 };
+    step(state, first, second);
+  }
+  return JSON.stringify(state);
+}
 function main(): void {
   const state = createFightingState();
   const left = state.combatants[0]!;
@@ -218,7 +259,160 @@ function main(): void {
     'invalid action aim steps must throw before a non-fighting phase can ignore them',
   );
 
-  console.log(`Character combat lifecycle cases: ${cases}/${cases} observed`);
+  const frontalGuardState = prepareHitState();
+  const frontalGuardAttacker = frontalGuardState.combatants[0]!;
+  const frontalGuardDefender = frontalGuardState.combatants[1]!;
+  frontalGuardDefender.actionState = 'guarding';
+  const frontalHealth = frontalGuardDefender.health;
+  expect(isWithinGuardCone(frontalGuardDefender, frontalGuardAttacker), 'the defender must recognize a frontal attacker');
+  applyCharacterHit(frontalGuardState, 0, 1, 'attack');
+  expect(frontalGuardDefender.health === frontalHealth, 'a frontal guard must block normal health damage');
+  expect(frontalGuardDefender.velocityX === 0 && frontalGuardDefender.velocityY === 0, 'a frontal guard must block normal knockback');
+  assertClose(
+    frontalGuardDefender.counterRemainingSeconds,
+    Balance.CHARACTER_BASE_COUNTER_WINDOW_SECONDS,
+    'a frontal guard must grant one counter window',
+  );
+  frontalGuardDefender.counterRemainingSeconds = 0.2;
+  frontalGuardDefender.counterIsReinforced = true;
+  applyCharacterHit(frontalGuardState, 0, 1, 'skill');
+  assertClose(
+    frontalGuardDefender.counterRemainingSeconds,
+    Balance.CHARACTER_BASE_COUNTER_WINDOW_SECONDS,
+    'a later successful guard must refresh instead of stack its counter window',
+  );
+  expect(frontalGuardDefender.counterIsReinforced === frontalGuardDefender.grantsReinforcedCounter, 'a guard refresh must take the current reinforcement flag');
+  expect(frontalGuardDefender.health === frontalHealth, 'a frontal guard must block skill health damage');
+  expect(frontalGuardDefender.velocityX === 0 && frontalGuardDefender.velocityY === 0, 'a frontal guard must block skill knockback');
+
+  const rearGuardState = prepareHitState();
+  const rearGuardAttacker = rearGuardState.combatants[0]!;
+  const rearGuardDefender = rearGuardState.combatants[1]!;
+  rearGuardAttacker.positionX = 80;
+  rearGuardDefender.actionState = 'guarding';
+  expect(!isWithinGuardCone(rearGuardDefender, rearGuardAttacker), 'the rear attacker must fall outside the guard cone');
+  applyCharacterHit(rearGuardState, 0, 1, 'skill');
+  expect(rearGuardDefender.health < rearGuardDefender.stats.healthMaximum, 'a rear skill must bypass guard health blocking');
+  expect(Math.hypot(rearGuardDefender.velocityX, rearGuardDefender.velocityY) > 0, 'a rear skill must bypass guard knockback blocking');
+
+  const dashGuardState = prepareHitState();
+  const dashGuardAttacker = dashGuardState.combatants[0]!;
+  const dashGuardDefender = dashGuardState.combatants[1]!;
+  dashGuardAttacker.positionX = 80;
+  dashGuardDefender.actionState = 'guarding';
+  dashGuardDefender.counterRemainingSeconds = 0.4;
+  dashGuardDefender.counterIsReinforced = true;
+  const dashHealth = dashGuardDefender.health;
+  applyCharacterHit(dashGuardState, 0, 1, 'dash');
+  expect(dashGuardDefender.health === dashHealth - dashGuardAttacker.profile.dash.healthDamage, 'a dash must deal ordinary health damage through guard');
+  assertClose(
+    Math.hypot(dashGuardDefender.velocityX, dashGuardDefender.velocityY),
+    dashGuardAttacker.profile.dash.knockback * Balance.CHARACTER_GUARD_BREAK_KNOCKBACK_MULTIPLIER,
+    'a guarded dash must apply the configured amplified knockback at any angle',
+  );
+  expect(dashGuardDefender.actionState === 'guarding', 'a guarded dash must retain the held guard state');
+  assertClose(dashGuardDefender.counterRemainingSeconds, 0.4, 'a guarded dash must not create or refresh a counter');
+  expect(dashGuardDefender.counterIsReinforced, 'a guarded dash must not alter the existing counter flag');
+
+  const counterExpiryState = createFightingState();
+  const counterExpiry = counterExpiryState.combatants[0]!;
+  counterExpiry.counterRemainingSeconds = Balance.CHARACTER_BASE_COUNTER_WINDOW_SECONDS;
+  counterExpiry.counterIsReinforced = true;
+  for (let tick = 0; tick < Math.ceil(Balance.CHARACTER_BASE_COUNTER_WINDOW_SECONDS / DELTA_SECONDS) + 1; tick += 1) {
+    step(counterExpiryState);
+  }
+  expect(counterExpiry.counterRemainingSeconds === 0, 'an unused counter must expire through fixed ticks');
+  expect(!counterExpiry.counterIsReinforced, 'counter expiry must clear reinforcement state');
+
+  const dashCounterState = createFightingState();
+  const dashCounter = dashCounterState.combatants[0]!;
+  dashCounter.counterRemainingSeconds = 1;
+  dashCounter.counterIsReinforced = true;
+  queueAction(dashCounterState, 'dash', { dashMoveX: 1, dashMoveY: 0 });
+  expect(dashCounter.counterRemainingSeconds > 0 && dashCounter.counterIsReinforced, 'an accepted dash must not consume a counter');
+
+  const singleHitState = prepareHitState();
+  const singleHitAttacker = singleHitState.combatants[0]!;
+  const singleHitDefender = singleHitState.combatants[1]!;
+  step(singleHitState, { queuedAction: 'attack', actionAimStep: 0, aimStep: 0 });
+  for (let tick = 0; tick < 30 && !singleHitAttacker.actionHasHit; tick += 1) step(singleHitState);
+  expect(singleHitAttacker.actionHasHit, 'an active normal attack must perform its hit test once');
+  const healthAfterFirstHit = singleHitDefender.health;
+  for (let tick = 0; tick < 20; tick += 1) step(singleHitState);
+  expect(singleHitDefender.health === healthAfterFirstHit, 'an action must not apply its hit more than once');
+
+  const reinforcedCounterState = prepareHitState();
+  const reinforcedAttacker = reinforcedCounterState.combatants[0]!;
+  const reinforcedDefender = reinforcedCounterState.combatants[1]!;
+  reinforcedAttacker.activeCounterMultiplier = Balance.CHARACTER_REINFORCED_COUNTER_DAMAGE_MULTIPLIER;
+  reinforcedAttacker.activeCounterStagger = true;
+  applyCharacterHit(reinforcedCounterState, 0, 1, 'attack');
+  expect(reinforcedDefender.actionState === 'staggered', 'only a reinforced normal counter must enter stagger');
+  assertClose(
+    reinforcedDefender.actionRemainingSeconds,
+    Balance.CHARACTER_REINFORCED_COUNTER_STAGGER_SECONDS,
+    'a reinforced counter must use the configured stagger duration',
+  );
+  const ordinaryCounterState = prepareHitState();
+  ordinaryCounterState.combatants[0]!.activeCounterMultiplier = Balance.CHARACTER_BASE_COUNTER_DAMAGE_MULTIPLIER;
+  applyCharacterHit(ordinaryCounterState, 0, 1, 'attack');
+  expect(ordinaryCounterState.combatants[1]!.actionState !== 'staggered', 'a non-reinforced counter must not stagger');
+
+  const ringOutState = createFightingState();
+  const ringOutLoser = ringOutState.combatants[1]!;
+  ringOutLoser.positionX = Balance.CHARACTER_ARENA_RADIUS + 1;
+  const healthBeforeRingOut = ringOutLoser.health;
+  resolveCharacterRingOut(ringOutState, 1);
+  assertClose(
+    ringOutLoser.health,
+    healthBeforeRingOut - ringOutLoser.stats.healthMaximum * Balance.CHARACTER_SELF_RING_OUT_PENALTY_RATIO,
+    'a non-finishing self ring-out must apply the legacy health penalty ratio',
+  );
+  expect(ringOutState.resetFreezeRemainingSeconds === Balance.CHARACTER_RESET_FREEZE_SECONDS, 'a non-finishing ring-out must enter reset freeze');
+  expect(ringOutState.combatants[0]!.facingAimStep === 0 && ringOutState.combatants[1]!.facingAimStep === 128, 'a ring-out reset must restore spawn-facing aim steps');
+  expect(ringOutState.events[0]?.type === 'ringOut' && ringOutState.events[0]?.selfInflicted, 'a self ring-out must emit its event classification');
+  const resetSpawnX = ringOutState.combatants[0]!.positionX;
+  step(ringOutState, { moveX: 1 });
+  expect(ringOutState.combatants[0]!.positionX === resetSpawnX, 'reset freeze after an actual ring-out must reject movement');
+
+  const inflictedRingOutState = createFightingState();
+  const inflictedLoser = inflictedRingOutState.combatants[1]!;
+  inflictedRingOutState.combatants[0]!.actionHasHit = true;
+  inflictedLoser.positionX = Balance.CHARACTER_ARENA_RADIUS + 1;
+  const inflictedBefore = inflictedLoser.health;
+  resolveCharacterRingOut(inflictedRingOutState, 1);
+  const inflictedLoss = inflictedBefore - inflictedLoser.health;
+  const selfRingOutState = createFightingState();
+  const selfLoser = selfRingOutState.combatants[1]!;
+  selfLoser.positionX = Balance.CHARACTER_ARENA_RADIUS + 1;
+  const selfBefore = selfLoser.health;
+  resolveCharacterRingOut(selfRingOutState, 1);
+  const selfLoss = selfBefore - selfLoser.health;
+  expect(selfLoss >= inflictedLoss, 'a self ring-out penalty must not be lower than an opponent-inflicted penalty');
+
+  const healthTimeoutState = createFightingState();
+  healthTimeoutState.combatants[0]!.health = 90;
+  healthTimeoutState.combatants[1]!.health = 40;
+  resolveCharacterTimeLimit(healthTimeoutState);
+  expect(healthTimeoutState.winnerIndex === 0 && healthTimeoutState.outcome === 'timeLimit', 'timeout must prefer higher health');
+  const centerTimeoutState = createFightingState();
+  centerTimeoutState.combatants[0]!.positionX = 5;
+  centerTimeoutState.combatants[1]!.positionX = 45;
+  resolveCharacterTimeLimit(centerTimeoutState);
+  expect(centerTimeoutState.winnerIndex === 0 && centerTimeoutState.outcome === 'timeLimit', 'equal-health timeout must prefer the combatant nearer center');
+  const drawTimeoutState = createFightingState();
+  drawTimeoutState.combatants[0]!.positionX = -10;
+  drawTimeoutState.combatants[1]!.positionX = 10;
+  resolveCharacterTimeLimit(drawTimeoutState);
+  expect(drawTimeoutState.winnerIndex === -1 && drawTimeoutState.outcome === 'draw', 'equal-health and equal-distance timeout must draw');
+
+  const firstScriptedSnapshot = scriptedSnapshot();
+  for (let repetition = 0; repetition < 8; repetition += 1) {
+    expect(scriptedSnapshot() === firstScriptedSnapshot, `scripted character sequence must be byte-equal on repeat ${repetition + 1}`);
+  }
+  console.log('Character scripted byte-equal repeats: 8/8 observed');
+
+  console.log(`Character combat cases: ${cases}/${cases} observed`);
 }
 
 main();

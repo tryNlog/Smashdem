@@ -1,5 +1,11 @@
 import * as Balance from './balance';
-import { isValidAimStep } from './aim';
+import { aimStepToUnit, isValidAimStep } from './aim';
+import {
+  applyCharacterHit,
+  resolveCharacterRingOut,
+  resolveCharacterTimeLimit,
+  type CharacterHitKind,
+} from './combatResolution';
 import type {
   ActionProfile,
   CharacterActionState,
@@ -204,19 +210,68 @@ function applyInput(
   }
 }
 
-function applyDashImpulses(state: CharacterBattleState): void {
-  for (const combatant of state.combatants) {
-    if (combatant.actionState !== 'dash' || actionPhase(combatant) !== 'active' || !combatant.dashImpulsePending) {
-      continue;
+function actionKind(combatant: Combatant): CharacterHitKind | null {
+  switch (combatant.actionState) {
+    case 'attack':
+    case 'dash':
+    case 'skill':
+      return combatant.actionState;
+    default:
+      return null;
+  }
+}
+
+function isWithinActionReach(attacker: Combatant, defender: Combatant, kind: CharacterHitKind): boolean {
+  const profile = profileForAction(attacker, kind);
+  if (profile === null) return false;
+  const dx = defender.positionX - attacker.positionX;
+  const dy = defender.positionY - attacker.positionY;
+  const distance = Math.hypot(dx, dy);
+  if (distance > profile.range + defender.stats.radius) return false;
+  if (kind === 'dash' || distance === 0) return true;
+  const aim = aimStepToUnit(attacker.actionAimStep);
+  return (aim.x * dx + aim.y * dy) / distance >= Balance.CHARACTER_ATTACK_ARC_COSINE;
+}
+
+function applyHitPhase(state: CharacterBattleState): void {
+  for (let attackerIndex = 0; attackerIndex < state.combatants.length; attackerIndex += 1) {
+    if (state.phase !== 'fighting') return;
+    const attacker = state.combatants[attackerIndex]!;
+    const kind = actionKind(attacker);
+    if (kind === null || actionPhase(attacker) !== 'active') continue;
+
+    if (kind === 'dash' && attacker.dashImpulsePending) {
+      attacker.velocityX += attacker.dashDirectionX * Balance.CHARACTER_DASH_IMPULSE;
+      attacker.velocityY += attacker.dashDirectionY * Balance.CHARACTER_DASH_IMPULSE;
+      // Movement applies drag and the shared global clamp after this hit-phase impulse.
+      attacker.dashImpulsePending = false;
     }
 
-    combatant.velocityX += combatant.dashDirectionX * Balance.CHARACTER_DASH_IMPULSE;
-    combatant.velocityY += combatant.dashDirectionY * Balance.CHARACTER_DASH_IMPULSE;
-    // Movement applies drag and the shared global clamp after this hit-phase impulse.
-    combatant.dashImpulsePending = false;
+    if (attacker.actionHasHit) continue;
+    for (let defenderIndex = 0; defenderIndex < state.combatants.length; defenderIndex += 1) {
+      if (defenderIndex === attackerIndex) continue;
+      const defender = state.combatants[defenderIndex]!;
+      if (isWithinActionReach(attacker, defender, kind)) {
+        applyCharacterHit(state, attackerIndex, defenderIndex, kind);
+        break;
+      }
+    }
+    // An active action samples its hit window once, whether or not any target was in reach.
+    attacker.actionHasHit = true;
   }
+}
 
-  // Task 4 owns action hit tests and their health, knockback, ring-out, and timeout resolution.
+function resolveArenaAndTimeLimit(state: CharacterBattleState): void {
+  for (let index = 0; index < state.combatants.length; index += 1) {
+    const combatant = state.combatants[index]!;
+    if (combatant.alive && Math.hypot(combatant.positionX, combatant.positionY) > Balance.CHARACTER_ARENA_RADIUS) {
+      resolveCharacterRingOut(state, index);
+      return;
+    }
+  }
+  if (state.battleElapsedSeconds >= Balance.CHARACTER_ROUND_TIME_LIMIT_SECONDS) {
+    resolveCharacterTimeLimit(state);
+  }
 }
 
 function applyMovement(
@@ -282,6 +337,11 @@ export function stepCharacterBattle(
   // 2. Timer phase: combatants are processed in stable index order.
   if (state.resetFreezeRemainingSeconds > 0) {
     state.resetFreezeRemainingSeconds = decrementTimer(state.resetFreezeRemainingSeconds, deltaSeconds);
+    if (state.resetFreezeRemainingSeconds === 0) {
+      for (const combatant of state.combatants) {
+        if (combatant.actionState === 'ringOutReset') combatant.actionState = 'idle';
+      }
+    }
   }
   for (const combatant of state.combatants) tickCombatantTimers(combatant, deltaSeconds);
 
@@ -290,14 +350,16 @@ export function stepCharacterBattle(
     applyInput(state, state.combatants[index]!, inputs[index]!);
   }
 
-  // 4. Hit phase: Task 3 only gives an active dash its shared velocity impulse.
-  applyDashImpulses(state);
+  // 4. Hit phase: dash impulse first, then one active-window test per action.
+  applyHitPhase(state);
+  if (state.phase !== 'fighting') return state;
 
   // 5. Movement phase: acceleration, drag, clamps, then position integration.
   for (let index = 0; index < state.combatants.length; index += 1) {
     applyMovement(state, state.combatants[index]!, inputs[index]!, deltaSeconds);
   }
 
-  // 6. Ring-out and time-limit resolution is intentionally deferred to Task 4.
+  // 6. Arena exit penalties and the deterministic time-limit tiebreak.
+  resolveArenaAndTimeLimit(state);
   return state;
 }
