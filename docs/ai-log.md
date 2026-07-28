@@ -1741,3 +1741,10 @@ GitHub Pages의 public build가 PM이 등록한 `VITE_RELAY_URL`을 받아 `wss:
 ### Next review boundary
 
 - Reviewer inspection is pending for `7715a53` against `.superpowers/sdd/2026-07-28-mouse-aim-combat-core/task-1-brief.md`. Task 2 has not started.
+
+## 2026-07-28 - Mouse-Aim Combat Core Task 1 독립 검토 (문서)
+
+- 검토 범위: `2c3fa2d..28181a1`의 `aim.ts`, character 상태/상수/팩토리/clone, state smoke, Task 2 전 임시 입력 호환 경계를 Task 1 brief와 보완 명세 §8.2~§8.5에 대조했다.
+- reviewer 보고: Critical·Important·Minor 항목 없음. diff 자체로 실제 실행·remote push 여부는 판정하지 못한다고 분리했다.
+- controller 재실행: `smoke:character-state` 21/21, `smoke:character-input` 14/14, `npm run build` exit 0, `smoke:run` 동일 시드 8/8 (2026-07-28 콘솔).
+- 다음 범위: Task 2가 기존 키 입력·임시 `actionDirectionX/Y` 호환을 마우스 포인터 조준 경계로 교체한다.
