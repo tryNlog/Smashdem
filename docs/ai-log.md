@@ -1852,3 +1852,10 @@ GitHub Pages의 public build가 PM이 등록한 `VITE_RELAY_URL`을 받아 `wss:
 ### Next review boundary
 
 - Re-review `30bc060..ae08f4a` before Task 4. Task 4 resolution and all session/renderer/network work remain outside this change.
+
+## 2026-07-28 - Mouse-Aim Combat Core Task 3 lifecycle 수정 재검토 (문서)
+
+- 1차 검토는 dash impulse가 drag 이전에 global clamp를 받는 점과 rejected zero-direction dash 뒤 guard release가 한 tick 지연되는 점을 Important로 기록했다. `ae08f4a`은 hit-phase clamp를 제거하고, rejected action 이후에도 guard transition을 평가하도록 바꿨다.
+- scoped re-review 범위 `a5fe6ae..eb21a70`은 두 항목을 ADDRESSED로 기록했고 새 Critical·Important 항목을 보고하지 않았다.
+- controller 재실행: `smoke:character-combat` 27/27, `smoke:run` 동일 시드 8/8, `npm run build` exit 0 (2026-07-28 콘솔).
+- 다음 범위: Task 4가 hit/guard/counter/ring-out/timeout resolution과 byte-equal character smoke를 추가한다.
