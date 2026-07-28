@@ -3,26 +3,33 @@
 > Claude ↔ Codex 세션 제한 릴레이의 인계 상태 파일. **작업 시작 전 읽고, 손 떼기 전 갱신한다.** 규칙 전문은 리포 루트 `AGENTS.md`.
 
 ## 현재 상태 (last updated: 2026-07-28, by Codex)
-- **현재 담당:** Codex Task 3 독립 검토 대기. `30bc060`은 fixed-tick lifecycle 코드·스모크를 기록한다. Task 4 판정·세션/렌더·network 연결은 시작하지 않았다.
-- **코어 상태:** `7715a53`은 256-step aim·가드 자원 제거·카운터/대시 상태 필드를 기록한다. `0efaf93`은 포인터 입력 경계, `ca95c13`은 mouse-button chord 보정이다. `30bc060`은 순수 `src/game/character/simulation.ts`에 Task 3 tick 순서·공유 velocity/drag·행동/가드 전이를 추가했다. Task 4의 히트, 가드 판정, 링아웃, 타임아웃과 세션/렌더 연결은 아직 범위 밖이다.
+- **현재 담당:** Codex Task 3 fix round 1 re-review 대기. `ae08f4a`은 독립 리뷰의 두 Important 항목에 대한 최소 수정과 회귀 smoke를 기록한다. Task 4 판정·세션/렌더·network 연결은 시작하지 않았다.
+- **코어 상태:** `7715a53`은 aim/state 이행, `0efaf93`은 포인터 입력 경계, `ca95c13`은 mouse-button chord 보정이다. `30bc060`은 Task 3 lifecycle, `ae08f4a`은 rejected action 뒤 guard transition 및 dash impulse→drag→global clamp 순서 보정이다. Task 4의 히트, 가드 판정, 링아웃, 타임아웃과 세션/렌더 연결은 아직 범위 밖이다.
 - **조작·가드 보완 계약:** `docs/superpowers/specs/2026-07-28-mouse-aim-guard-matchup-design.md` — PM이 키보드 이동/마우스 조준 분리, 좌클릭 공격, `E` 스킬, 우클릭 무제한 전면 가드, 이동방향 대시, 256단계 조준, 대시 가드브레이크 넉백 증폭, 좌클릭 반격을 결정했다. 서면 검토 발견 사항은 §8 보정 규칙으로 반영됐고, PM이 2026-07-28 재검토에서 옵션 1(§8.6 봇 순서 명시, §8.1 리셋 동결 이동 거부, RELAY 참조 정리)을 승인했다. 대체 구현 계획은 `docs/superpowers/plans/2026-07-28-mouse-aim-combat-core.md`로 작성됐다(보완 문서 §8 인용, §8.8 요건 충족 — Codex 구현·PM 판정 대기).
 - **전환 기준:** 기본 계약은 `docs/superpowers/specs/2026-07-28-character-arena-design.md`, 입력·관성·상성 가드 보완 계약은 `docs/superpowers/specs/2026-07-28-mouse-aim-guard-matchup-design.md`다. 후자의 서면 검토와 PM 승인은 2026-07-28에 기록됐다. 새 구현 계획은 보완 문서 §8을 인용해야 하며, 두 문서가 충돌하면 보완 문서 §8이 우선한다.
 - **로컬 복귀선:** `spinner-baseline-2026-07-28` → `f97bca1` (원격 전송 금지). 8/2 23:00에는 기본 계약 문서(`2026-07-28-character-arena-design.md`) §8.2의 4개 관측으로 캐릭터 후보/태그 기준을 PM이 선택한다(보완 문서의 §8.2와 다른 절이니 혼동 금지).
 - **Claude 제한 해제 예정 시각:** `[UNSUPPORTED]` — 마지막 메시지는 "monthly spend limit"만 표시했고, 복귀 시각을 제공하지 않았다. 다음 Claude 제한 메시지에 시각이 있으면 이 줄에 기록한다.
 - **Codex 복귀 가능 시각:** `[UNSUPPORTED]` — 현재 세션에서 제한 해제 시각이 제공되지 않았다.
-- **브랜치:** `s2-run`; 최신 로컬 기능 커밋은 Task 3 lifecycle `30bc060`이다. remote `origin`은 있고, **push 금지**.
+- **브랜치:** `s2-run`; 최신 로컬 기능 커밋은 Task 3 fix round 1 `ae08f4a`이다. remote `origin`은 있고, **push 금지**.
 - **트리:** 작업 시작 전 `git log --oneline -5`·`git status`로 코드·문서 커밋을 함께 확인한다. remote push는 PM 전용이다.
 ## 진행 중 작업
 - **S3 공개 relay 배선:** `1ad9f62`에 GitHub Actions `VITE_RELAY_URL` 주입, direct Vite env access, local relay build smoke, PM Cloudflare/Pages 절차가 있다. 공개 Worker endpoint와 Canvas 두 브라우저 관찰은 PM 게이트다.
 - **PM 게이트:** Cloudflare 로그인·`npm run relay:deploy`·GitHub Actions 변수 등록·원격 push·공개 Worker/Canvas 두 브라우저 관찰은 PM 계정과 브라우저가 필요한 작업이다. PM 부재 시 모바일 조작·제출물 큐로 이동한다.
 ## 다음 작업 큐 (우선순위 순, 각 완료 기준 포함)
-0. **[Task 3 독립 검토 대기] 캐릭터 시뮬레이션·관성·행동 lifecycle** — `30bc060`을 `docs/superpowers/plans/2026-07-28-mouse-aim-combat-core.md` Task 3 및 보완 명세 §8.1~§8.4와 대조한다. focused smoke `25/25`, build exit `0`은 로컬 관측이며, 독립 리뷰 전 Task 4를 시작하지 않는다.
+0. **[Task 3 fix round 1 re-review 대기] 캐릭터 시뮬레이션·관성·행동 lifecycle** — `30bc060..ae08f4a`을 Task 3 및 보완 명세 §8.1~§8.4와 대조한다. focused smoke `27/27`, build exit `0`, 기존 런 동일 시드 `8/8`은 로컬 관측이며, re-review 전 Task 4를 시작하지 않는다.
 1. **[Task 4 미착수] 가드·카운터·링아웃·타임아웃 판정** — 같은 계획 Task 4. 무제한 상성 가드, 좌클릭 반격, dash guard-break, ring-out 체력 페널티, health→center→draw 판정 및 byte-equal smoke를 구현한다.
 2. **장비·12판 런 이행** — `equipment.ts`와 무기/방어구/장신구 보상·강화·격납고 변환. 착수 전에 싱글플레이 플랜에 보완 문서 §8.5 대체표(counterWindow 등)를 반영한다.
 3. **봇·링아웃·측정** — 새 봇 4티어와 링아웃 체력 페널티. 봇 결정 순서는 보완 문서 §8.6의 7단계를 따른다. 미러봇은 활성화하지 않는다.
 4. **PvP v2** — 새 입력·장비 ID를 protocol/relay/two-tab 경로에 반영한다. 8/2 23:00 전 관측이 없으면 로컬 2인 범위로 강등한다.
 5. **제출물** — 게임 소개·실행 방법 PDF(#3), AI 활용 기술 PDF(#4), 30~60초 영상.
 ## 인계 로그 (append-only, 최신이 위)
+### 2026-07-28 — Codex Task 3 review fix round 1 handoff → re-review
+- 리뷰 입력: (1) dash impulse 직후 global clamp가 movement drag보다 앞섰고, (2) rejected non-none action이 guard held/release 처리를 막았다.
+- 코드 커밋: `ae08f4a fix(character): honor lifecycle ordering on rejected dash`. `applyDashImpulses()`의 immediate clamp를 제거해 movement 단계가 drag 후 shared global clamp를 수행하게 했고, rejected action 뒤의 early return을 제거해 같은 tick의 guard 전이가 평가되게 했다. Task 4 resolution은 건드리지 않았다.
+- TDD red 1: `npm run smoke:character-combat` → `Error: a rejected zero-direction dash must still release guard in the same tick`. 해당 반환 제거 뒤 같은 smoke는 다음 red로 진행했다.
+- TDD red 2: `npm run smoke:character-combat` → `Error: a dash impulse must reach movement drag before the shared global clamp`.
+- 관측(2026-07-28 콘솔): `smoke:character-combat` 27/27, `smoke:character-state` 21/21, `npm run build` exit 0, `smoke:run` 동일 시드 8/8. 수치 적합성과 사람 조작감은 `[UNSUPPORTED]`이다.
+- 다음: `30bc060..ae08f4a` re-review를 먼저 기록한다. Task 4, session/renderer/network, remote push는 시작하지 않는다.
 ### 2026-07-28 — Codex Task 3 fixed-tick lifecycle handoff → independent review
 - 구현 커밋: `30bc060 feat(character): add aim-step simulation lifecycle`. remote push·remote 변경은 하지 않았다.
 - 범위: events clear → tick/clock → timer → validated input/action/guard → dash impulse placeholder → movement 순서를 `src/game/character/simulation.ts`에 기록했다. hit/guard cone/damage/ring-out/time-limit resolution은 Task 4 자리표시자로 남았다.

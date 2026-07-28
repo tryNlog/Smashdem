@@ -1832,3 +1832,23 @@ GitHub Pages의 public build가 PM이 등록한 `VITE_RELAY_URL`을 받아 `wss:
 ### Next review boundary
 
 - Independent review of `30bc060` is pending. Task 4, session/renderer/network wiring, and remote push remain outside this task.
+## 2026-07-28 - Mouse-Aim Combat Core Task 3 review fix round 1
+
+### Review input
+
+- Independent review reported two Important findings against `30bc060`: hit-phase dash clamp occurred before movement drag/global clamp; rejected non-none actions returned before guard release/held evaluation.
+
+### TDD and code
+
+- Red 1: `npm run smoke:character-combat` exited `1` with `a rejected zero-direction dash must still release guard in the same tick`.
+- After only the rejected-action return removal, Red 2: the smoke exited `1` with `a dash impulse must reach movement drag before the shared global clamp`.
+- Commit `ae08f4a` removes the hit-phase dash clamp. The existing movement phase retains drag followed by `CHARACTER_MAX_TOTAL_SPEED` clamp.
+- Observed (2026-07-28 console): `smoke:character-combat` 27/27; `smoke:character-state` 21/21; `npm run build` exit 0; `smoke:run` same seed 8/8.
+
+### [UNSUPPORTED]
+
+- The regression cases establish operation order, not whether dash impulse, drag, or speed-cap values suit character play.
+
+### Next review boundary
+
+- Re-review `30bc060..ae08f4a` before Task 4. Task 4 resolution and all session/renderer/network work remain outside this change.
