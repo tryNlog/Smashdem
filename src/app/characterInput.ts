@@ -1,19 +1,25 @@
 /**
- * Desktop keyboard to deterministic character input commands.
+ * Temporary keyboard compatibility boundary pending Task 2's pointer-input rewrite.
  *
- * This module owns the desktop DOM event boundary. Character simulation only
- * receives the quantized command returned by consumeCommand().
+ * This module remains outside the deterministic simulation. Its local legacy
+ * return shape exists only so the pre-amendment input smoke can compile while
+ * Task 1 replaces the simulation command contract.
  */
 
 import {
-  NEUTRAL_CHARACTER_INPUT,
+  neutralCharacterInput,
   type Axis,
   type CharacterInputCommand,
   type QueuedAction,
 } from '../game/character/types';
 
+interface LegacyCharacterInputCommand extends CharacterInputCommand {
+  readonly actionDirectionX: Axis;
+  readonly actionDirectionY: Axis;
+}
+
 export interface CharacterKeyboardInputSource {
-  consumeCommand: () => CharacterInputCommand;
+  consumeCommand: () => LegacyCharacterInputCommand;
   consumeRestartRequest: () => boolean;
   dispose: () => void;
 }
@@ -90,9 +96,9 @@ export function createCharacterKeyboardInputSource(target: Window = window): Cha
   target.addEventListener('blur', handleBlur);
 
   return {
-    consumeCommand(): CharacterInputCommand {
-      const command: CharacterInputCommand = {
-        ...NEUTRAL_CHARACTER_INPUT,
+    consumeCommand(): LegacyCharacterInputCommand {
+      const command: LegacyCharacterInputCommand = {
+        ...neutralCharacterInput(0),
         moveX: currentMoveX(),
         moveY: currentMoveY(),
         guard: heldKeys.has('KeyL'),

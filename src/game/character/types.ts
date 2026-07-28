@@ -2,6 +2,7 @@ import type { RandomState } from '../../engine/random';
 import * as Balance from './balance';
 
 export type Axis = -1 | 0 | 1;
+export type AimStep = number;
 export type QueuedAction = 'none' | 'attack' | 'dash' | 'skill';
 export type CharacterActionState =
   | 'idle'
@@ -18,20 +19,26 @@ export type CharacterBattleOutcome = 'none' | 'health' | 'ringOut' | 'timeLimit'
 export interface CharacterInputCommand {
   readonly moveX: Axis;
   readonly moveY: Axis;
+  readonly aimStep: AimStep;
   readonly guard: boolean;
   readonly queuedAction: QueuedAction;
-  readonly actionDirectionX: Axis;
-  readonly actionDirectionY: Axis;
+  readonly actionAimStep: AimStep;
+  readonly dashMoveX: Axis;
+  readonly dashMoveY: Axis;
 }
 
-export const NEUTRAL_CHARACTER_INPUT: CharacterInputCommand = {
-  moveX: 0,
-  moveY: 0,
-  guard: false,
-  queuedAction: 'none',
-  actionDirectionX: 0,
-  actionDirectionY: 0,
-};
+export function neutralCharacterInput(aimStep: AimStep): CharacterInputCommand {
+  return {
+    moveX: 0,
+    moveY: 0,
+    aimStep,
+    guard: false,
+    queuedAction: 'none',
+    actionAimStep: aimStep,
+    dashMoveX: 0,
+    dashMoveY: 0,
+  };
+}
 
 export interface ActionProfile {
   readonly startupSeconds: number;
@@ -40,7 +47,6 @@ export interface ActionProfile {
   readonly cooldownSeconds: number;
   readonly range: number;
   readonly healthDamage: number;
-  readonly guardDamage: number;
   readonly knockback: number;
 }
 
@@ -52,7 +58,6 @@ export interface CombatProfile {
 
 export interface CombatStats {
   readonly healthMaximum: number;
-  readonly guardMaximum: number;
   readonly moveAcceleration: number;
   readonly maxMoveSpeed: number;
   readonly radius: number;
@@ -60,7 +65,6 @@ export interface CombatStats {
 
 export const DEFAULT_COMBAT_STATS: CombatStats = {
   healthMaximum: Balance.CHARACTER_DEFAULT_HEALTH_MAXIMUM,
-  guardMaximum: Balance.CHARACTER_DEFAULT_GUARD_MAXIMUM,
   moveAcceleration: Balance.CHARACTER_DEFAULT_MOVE_ACCELERATION,
   maxMoveSpeed: Balance.CHARACTER_DEFAULT_MAX_MOVE_SPEED,
   radius: Balance.CHARACTER_DEFAULT_RADIUS,
@@ -74,7 +78,6 @@ export const DEFAULT_COMBAT_PROFILE: CombatProfile = {
     cooldownSeconds: Balance.CHARACTER_NORMAL_COOLDOWN_SECONDS,
     range: Balance.CHARACTER_NORMAL_RANGE,
     healthDamage: Balance.CHARACTER_NORMAL_HEALTH_DAMAGE,
-    guardDamage: Balance.CHARACTER_NORMAL_GUARD_DAMAGE,
     knockback: Balance.CHARACTER_NORMAL_KNOCKBACK,
   },
   dash: {
@@ -84,7 +87,6 @@ export const DEFAULT_COMBAT_PROFILE: CombatProfile = {
     cooldownSeconds: Balance.CHARACTER_DASH_COOLDOWN_SECONDS,
     range: Balance.CHARACTER_DASH_RANGE,
     healthDamage: Balance.CHARACTER_DASH_HEALTH_DAMAGE,
-    guardDamage: Balance.CHARACTER_DASH_GUARD_DAMAGE,
     knockback: Balance.CHARACTER_DASH_KNOCKBACK,
   },
   skill: {
@@ -94,7 +96,6 @@ export const DEFAULT_COMBAT_PROFILE: CombatProfile = {
     cooldownSeconds: Balance.CHARACTER_SKILL_COOLDOWN_SECONDS,
     range: Balance.CHARACTER_SKILL_RANGE,
     healthDamage: Balance.CHARACTER_SKILL_HEALTH_DAMAGE,
-    guardDamage: Balance.CHARACTER_SKILL_GUARD_DAMAGE,
     knockback: Balance.CHARACTER_SKILL_KNOCKBACK,
   },
 };
@@ -108,17 +109,23 @@ export interface Combatant {
   positionY: number;
   velocityX: number;
   velocityY: number;
-  facingX: Axis;
-  facingY: Axis;
+  facingAimStep: AimStep;
   health: number;
-  guard: number;
   actionState: CharacterActionState;
   actionRemainingSeconds: number;
+  actionAimStep: AimStep;
+  dashDirectionX: number;
+  dashDirectionY: number;
+  dashImpulsePending: boolean;
+  actionHasHit: boolean;
   normalCooldownSeconds: number;
   dashCooldownSeconds: number;
   skillCooldownSeconds: number;
-  guardRegenDelaySeconds: number;
   counterRemainingSeconds: number;
+  counterIsReinforced: boolean;
+  grantsReinforcedCounter: boolean;
+  activeCounterMultiplier: number;
+  activeCounterStagger: boolean;
   ringOutCount: number;
   alive: boolean;
 }
@@ -137,7 +144,6 @@ export interface CharacterBattleState {
   resetFreezeRemainingSeconds: number;
   combatants: Combatant[];
   random: RandomState;
-  hitCooldowns: number[];
   winnerIndex: number;
   outcome: CharacterBattleOutcome;
   finishByRingOut: boolean;

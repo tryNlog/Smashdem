@@ -1,7 +1,7 @@
 import { cloneRandomState, createRandomState } from '../../engine/random';
 import * as Balance from './balance';
 import type {
-  Axis,
+  AimStep,
   CharacterBattleState,
   Combatant,
   CombatProfile,
@@ -14,19 +14,31 @@ export interface CombatantDefinition {
   readonly profile: CombatProfile;
 }
 
+const SPAWN_AIM_STEPS = [0, 128] as const;
+
 function requireTwoCombatants(combatants: readonly Combatant[]): void {
   if (combatants.length !== 2) {
     throw new Error('character battle state requires exactly two combatants');
   }
 }
 
-function spawnFacing(index: number): Axis {
-  if (index === 0) return 1;
-  if (index === 1) return -1;
+function spawnPositionDirection(index: number): -1 | 1 {
+  if (index === 0) return -1;
+  if (index === 1) return 1;
   throw new Error('character battle state requires combatant index 0 or 1');
 }
 
+function spawnAimStep(index: number): AimStep {
+  const aimStep = SPAWN_AIM_STEPS[index];
+  if (aimStep === undefined) {
+    throw new Error('character battle state requires combatant index 0 or 1');
+  }
+  return aimStep;
+}
+
 function createCombatant(index: number, definition: CombatantDefinition): Combatant {
+  const aimStep = spawnAimStep(index);
+
   return {
     index,
     name: definition.name,
@@ -36,17 +48,23 @@ function createCombatant(index: number, definition: CombatantDefinition): Combat
     positionY: 0,
     velocityX: 0,
     velocityY: 0,
-    facingX: spawnFacing(index),
-    facingY: 0,
+    facingAimStep: aimStep,
     health: definition.stats.healthMaximum,
-    guard: definition.stats.guardMaximum,
     actionState: 'idle',
     actionRemainingSeconds: 0,
+    actionAimStep: aimStep,
+    dashDirectionX: 0,
+    dashDirectionY: 0,
+    dashImpulsePending: false,
+    actionHasHit: false,
     normalCooldownSeconds: 0,
     dashCooldownSeconds: 0,
     skillCooldownSeconds: 0,
-    guardRegenDelaySeconds: 0,
     counterRemainingSeconds: 0,
+    counterIsReinforced: false,
+    grantsReinforcedCounter: false,
+    activeCounterMultiplier: 1,
+    activeCounterStagger: false,
     ringOutCount: 0,
     alive: true,
   };
@@ -58,15 +76,12 @@ export function positionCombatantsAtSpawn(combatants: readonly Combatant[]): voi
 
   for (let index = 0; index < combatants.length; index += 1) {
     const combatant = combatants[index]!;
-    const direction = spawnFacing(index);
-    combatant.positionX = direction === 1
-      ? -Balance.CHARACTER_SPAWN_DISTANCE_FROM_CENTER
-      : Balance.CHARACTER_SPAWN_DISTANCE_FROM_CENTER;
+    combatant.positionX = spawnPositionDirection(index) * Balance.CHARACTER_SPAWN_DISTANCE_FROM_CENTER;
     combatant.positionY = 0;
     combatant.velocityX = 0;
     combatant.velocityY = 0;
-    combatant.facingX = direction;
-    combatant.facingY = 0;
+    combatant.facingAimStep = spawnAimStep(index);
+    combatant.actionAimStep = combatant.facingAimStep;
   }
 }
 
@@ -89,7 +104,6 @@ export function createCharacterBattleState(
     resetFreezeRemainingSeconds: 0,
     combatants,
     random: createRandomState(seed),
-    hitCooldowns: new Array(4).fill(0),
     winnerIndex: -1,
     outcome: 'none',
     finishByRingOut: false,
@@ -107,7 +121,6 @@ export function cloneCharacterBattleState(state: CharacterBattleState): Characte
     resetFreezeRemainingSeconds: state.resetFreezeRemainingSeconds,
     combatants: state.combatants.map((combatant) => ({ ...combatant })),
     random: cloneRandomState(state.random),
-    hitCooldowns: state.hitCooldowns.slice(),
     winnerIndex: state.winnerIndex,
     outcome: state.outcome,
     finishByRingOut: state.finishByRingOut,
