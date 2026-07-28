@@ -1632,3 +1632,26 @@ GitHub Pages의 public build가 PM이 등록한 `VITE_RELAY_URL`을 받아 `wss:
 ### [UNSUPPORTED] items
 
 - `[UNSUPPORTED]` No browser or human-device observation has exercised this currently unconnected desktop input source. The recorded smoke covers command conversion and queue semantics only.
+
+## 2026-07-28 - PM 조작·상성 가드 계약 보완 (설계 기록)
+
+### 목표
+
+키보드 이동과 마우스 조준을 분리하고, 기존 팽이 물리의 속도 누적·마찰 감쇠 감각을 캐릭터 이동/대시/넉백에 옮긴다. 가드는 게이지가 아닌 무제한 전면 상성으로 바꾼다.
+
+### PM 결정 근거
+
+- 현재 대화: 캐릭터 좌표 이동은 `WASD`/방향키만, 마우스는 시야·공격·가드 방향만 변경.
+- 현재 대화: 좌클릭 일반 공격, `E` 무기 스킬, 우클릭 홀드 가드, `Space`는 이동 방향 대시.
+- 현재 대화: 대시는 기존 관성에 임펄스를 더하며, 역방향 대시는 속도를 먼저 상쇄한다.
+- 현재 대화: 가드는 무제한 전면 방어, 정면 일반/스킬을 막으면 좌클릭 반격 기회를 만들고, 가드 중 대시에 맞으면 넉백이 증폭된다.
+
+### 설계 산출물
+
+- 권위 보완 문서: `docs/superpowers/specs/2026-07-28-mouse-aim-guard-matchup-design.md`.
+- 기존 Task 2 키보드 행동 입력 커밋 `7148034`은 세션/렌더러/공개 배포에 연결하지 않았으며, 새 문서의 입력 경계로 교체 대상이다.
+
+### [UNSUPPORTED]
+
+- `aimStep` 256단계, 가드 이동 배율 0.60, 가드브레이크 넉백 배율 1.60, 기본/세트 반격 배율 1.35/1.75, 강화 반격 경직 0.35초는 캐릭터 하니스·사람 플레이 근거가 아직 없다.
+- 키보드 이동/마우스 조준 분리, 역방향 대시 감각, 가드브레이크 가시성은 브라우저 실플레이 관찰이 필요하다.

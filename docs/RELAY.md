@@ -4,7 +4,9 @@
 
 ## 현재 상태 (last updated: 2026-07-28, by Codex)
 - **현재 담당:** Codex (PM 승인에 따라 캐릭터 전환 명세를 보강 중)
-- **전환 기준:** `docs/superpowers/specs/2026-07-28-character-arena-design.md`가 캐릭터 전투의 현재 권위 문서다. 기준 문서 커밋은 `2f0c125`, 명세 승인은 2026-07-28 PM 기록이다. 구현은 세 계획의 실행 방식 선택 뒤에 시작한다.
+- **코어 상태:** Task 1의 직렬화 상태 경계는 `fd7044d`·`2f39e48`에 기록되어 있다. Task 2의 키보드 행동 입력 `7148034`은 새 조작 계약 이전의 로컬 코드이며, 검토·세션 연결 전 교체 대상으로 둔다.
+- **조작·가드 보완 계약:** `docs/superpowers/specs/2026-07-28-mouse-aim-guard-matchup-design.md` — PM이 키보드 이동/마우스 조준 분리, 좌클릭 공격, `E` 스킬, 우클릭 무제한 전면 가드, 이동방향 대시, 256단계 조준, 대시 가드브레이크 넉백 증폭, 좌클릭 반격을 결정했다. 문서 검토 대기이며 구현 계획은 아직 작성하지 않는다.
+- **전환 기준:** 기본 계약은 `docs/superpowers/specs/2026-07-28-character-arena-design.md`, 입력·관성·상성 가드 보완 계약은 `docs/superpowers/specs/2026-07-28-mouse-aim-guard-matchup-design.md`다. 후자의 문서 검토 전에는 새 구현 계획을 시작하지 않는다.
 - **로컬 복귀선:** `spinner-baseline-2026-07-28` → `f97bca1` (원격 전송 금지). 8/2 23:00에는 명세 §8.2의 4개 관측으로 캐릭터 후보/태그 기준을 PM이 선택한다.
 - **Claude 제한 해제 예정 시각:** `[UNSUPPORTED]` — 마지막 메시지는 "monthly spend limit"만 표시했고, 복귀 시각을 제공하지 않았다. 다음 Claude 제한 메시지에 시각이 있으면 이 줄에 기록한다.
 - **Codex 복귀 가능 시각:** 현재 세션에서 인계 시 기입.
