@@ -1,95 +1,159 @@
 /**
- * Character desktop input smoke.
+ * Character pointer-input smoke.
  *
  * Run: npm run smoke:character-input
- * This defines the desktop-DOM boundary before its implementation exists.
+ * The production boundary intentionally retains raw pointer coordinates only
+ * in src/app/characterInput.ts and emits deterministic aim steps instead.
  */
 
-import { createCharacterKeyboardInputSource } from '../src/app/characterInput';
+import { createCharacterPointerInputSource } from '../src/app/characterInput';
 
-function expect(condition: boolean, message: string): void {
-  if (!condition) throw new Error(message);
+interface FakeEventInit {
+  readonly button?: number;
+  readonly clientX?: number;
+  readonly clientY?: number;
+  readonly code?: string;
+  readonly repeat?: boolean;
 }
 
-interface FakeKeyboardEvent {
-  readonly code: string;
-  readonly repeat: boolean;
+interface FakeEvent extends FakeEventInit {
+  defaultPrevented: boolean;
   preventDefault(): void;
 }
 
-type Listener = (event: FakeKeyboardEvent) => void;
+type Listener = (event: FakeEvent) => void;
 
 class FakeWindow {
-  private readonly listeners = new Map<string, Listener>();
+  private readonly listeners = new Map<string, Set<Listener>>();
 
   addEventListener(type: string, listener: EventListener): void {
-    this.listeners.set(type, listener as unknown as Listener);
+    const listeners = this.listeners.get(type) ?? new Set<Listener>();
+    listeners.add(listener as unknown as Listener);
+    this.listeners.set(type, listeners);
   }
 
-  removeEventListener(type: string): void {
-    this.listeners.delete(type);
+  removeEventListener(type: string, listener: EventListener): void {
+    this.listeners.get(type)?.delete(listener as unknown as Listener);
   }
 
-  emit(type: string, code = '', repeat = false): void {
-    this.listeners.get(type)?.({ code, repeat, preventDefault() {} });
+  dispatch(type: string, init: FakeEventInit = {}): FakeEvent {
+    const event: FakeEvent = {
+      ...init,
+      defaultPrevented: false,
+      preventDefault() {
+        this.defaultPrevented = true;
+      },
+    };
+    for (const listener of this.listeners.get(type) ?? []) listener(event);
+    return event;
   }
+}
+
+let cases = 0;
+
+function expect(condition: boolean, message: string): void {
+  cases += 1;
+  if (!condition) throw new Error(message);
 }
 
 function main(): void {
   const target = new FakeWindow();
-  const source = createCharacterKeyboardInputSource(target as unknown as Window);
+  const source = createCharacterPointerInputSource(target as unknown as Window, 0);
 
-  target.emit('keydown', 'ArrowRight');
-  target.emit('keydown', 'KeyJ');
+  expect(source.consumeCommand().aimStep === 0, 'no pointer must preserve the supplied initial aim step');
+
+  source.setFighterScreenOrigin(100, 100);
+  target.dispatch('pointermove', { clientX: 200, clientY: 100 });
+  expect(source.consumeCommand().aimStep === 0, 'a pointer right of the fighter must quantize to step 0');
+
+  // The pointer stays still while the fighter moves below it, so aim recomputes to up.
+  source.setFighterScreenOrigin(200, 200);
+  expect(source.consumeCommand().aimStep === 192, 'a stationary pointer must re-aim after the fighter origin moves');
+  target.dispatch('pointermove', { clientX: 200, clientY: 200 });
+  expect(source.consumeCommand().aimStep === 192, 'a pointer at the fighter origin must preserve the prior valid aim');
+
+  source.setFighterScreenOrigin(100, 200);
+  target.dispatch('pointerdown', { button: 0, clientX: 100, clientY: 300 });
+  target.dispatch('pointermove', { clientX: 200, clientY: 200 });
   const attack = source.consumeCommand();
-  expect(attack.queuedAction === 'attack', 'J must queue an attack');
-  expect(
-    attack.actionDirectionX === 1 && attack.actionDirectionY === 0,
-    'an action must snapshot movement when the action key is pressed',
-  );
-  expect(source.consumeCommand().queuedAction === 'none', 'an action must clear after one consume');
+  expect(attack.queuedAction === 'attack', 'left mouse must queue an attack');
+  expect(attack.actionAimStep === 64, 'left mouse must snapshot aim at pointer-down');
+  expect(attack.aimStep === 0, 'latest pointer aim must remain independent from the queued action snapshot');
+  expect(source.consumeCommand().queuedAction === 'none', 'a queued action must clear after one consume');
 
-  target.emit('keyup', 'ArrowRight');
-  target.emit('keydown', 'KeyK');
-  target.emit('keydown', 'Space');
-  expect(source.consumeCommand().queuedAction === 'dash', 'the latest non-repeated action must replace the pending action');
+  target.dispatch('keydown', { code: 'KeyE', repeat: false });
+  target.dispatch('keyup', { code: 'KeyE' });
+  target.dispatch('keydown', { code: 'Space', repeat: false });
+  target.dispatch('keyup', { code: 'Space' });
+  const skillAfterRejectedDash = source.consumeCommand();
+  expect(skillAfterRejectedDash.queuedAction === 'skill', 'a zero-direction dash must not replace an unconsumed skill');
+  expect(skillAfterRejectedDash.actionAimStep === 0, 'E must snapshot the current aim step');
 
-  target.emit('keydown', 'KeyW');
-  target.emit('keydown', 'KeyD');
-  const diagonal = source.consumeCommand();
-  expect(diagonal.moveX === 1 && diagonal.moveY === -1, 'WASD must emit quantized movement axes');
-  target.emit('keyup', 'KeyW');
-  target.emit('keyup', 'KeyD');
-  target.emit('keydown', 'ArrowLeft');
-  target.emit('keydown', 'ArrowDown');
-  const arrowDiagonal = source.consumeCommand();
-  expect(arrowDiagonal.moveX === -1 && arrowDiagonal.moveY === 1, 'arrow keys must emit quantized movement axes');
-  target.emit('keyup', 'ArrowLeft');
-  target.emit('keyup', 'ArrowDown');
+  target.dispatch('keydown', { code: 'KeyD', repeat: false });
+  target.dispatch('keydown', { code: 'Space', repeat: false });
+  target.dispatch('keyup', { code: 'Space' });
+  target.dispatch('keyup', { code: 'KeyD' });
+  const dash = source.consumeCommand();
+  expect(dash.queuedAction === 'dash', 'Space with movement must queue a dash');
+  expect(dash.dashMoveX === 1 && dash.dashMoveY === 0, 'a queued dash must preserve its movement snapshot after key release');
 
-  target.emit('keydown', 'KeyL');
-  expect(source.consumeCommand().guard, 'held L must enable guard');
-  target.emit('keyup', 'KeyL');
-  expect(!source.consumeCommand().guard, 'releasing L must disable guard');
+  target.dispatch('keydown', { code: 'KeyW', repeat: false });
+  target.dispatch('keydown', { code: 'ArrowRight', repeat: false });
+  target.dispatch('pointermove', { clientX: 100, clientY: 100 });
+  const separatedInput = source.consumeCommand();
+  expect(separatedInput.moveX === 1 && separatedInput.moveY === -1, 'WASD and arrows must be the only movement sources');
+  expect(separatedInput.aimStep === 192, 'pointer movement must affect aim without changing movement axes');
+  target.dispatch('keyup', { code: 'KeyW' });
+  target.dispatch('keyup', { code: 'ArrowRight' });
 
-  target.emit('keydown', 'KeyJ');
-  target.emit('keydown', 'KeyJ', true);
-  expect(source.consumeCommand().queuedAction === 'attack', 'repeated action keydown must not enqueue another action');
-  expect(source.consumeCommand().queuedAction === 'none', 'one non-repeated action must produce one command only');
+  target.dispatch('keydown', { code: 'KeyE', repeat: false });
+  target.dispatch('pointerdown', { button: 0, clientX: 200, clientY: 200 });
+  const latestAction = source.consumeCommand();
+  expect(latestAction.queuedAction === 'attack', 'the latest valid action edge must replace an unconsumed action');
 
-  target.emit('keydown', 'KeyR');
+  target.dispatch('pointerdown', { button: 2 });
+  expect(source.consumeCommand().guard, 'right mouse hold must enable guard');
+  const contextMenu = target.dispatch('contextmenu');
+  expect(contextMenu.defaultPrevented, 'the input boundary must prevent the browser context menu');
+  target.dispatch('pointerup', { button: 2 });
+  expect(!source.consumeCommand().guard, 'right mouse release must end guard');
+
+  target.dispatch('keydown', { code: 'KeyA', repeat: false });
+  target.dispatch('pointerdown', { button: 2 });
+  target.dispatch('blur');
+  const afterBlur = source.consumeCommand();
+  expect(afterBlur.moveX === 0 && afterBlur.moveY === 0, 'blur must clear held movement input');
+  expect(!afterBlur.guard, 'blur must clear held guard input');
+
+  target.dispatch('keydown', { code: 'ArrowDown', repeat: false });
+  target.dispatch('pointerdown', { button: 2 });
+  target.dispatch('pointercancel');
+  const afterPointerCancel = source.consumeCommand();
+  expect(afterPointerCancel.moveX === 0 && afterPointerCancel.moveY === 0, 'pointercancel must clear held movement input');
+  expect(!afterPointerCancel.guard, 'pointercancel must clear held guard input');
+
+  target.dispatch('keydown', { code: 'KeyJ', repeat: false });
+  target.dispatch('keydown', { code: 'KeyK', repeat: false });
+  target.dispatch('keydown', { code: 'KeyL', repeat: false });
+  expect(source.consumeCommand().queuedAction === 'none', 'J, K, and L must not queue character actions');
+
+  target.dispatch('keydown', { code: 'KeyR', repeat: false });
   expect(source.consumeRestartRequest(), 'R must queue one restart request');
-  expect(!source.consumeRestartRequest(), 'restart request must clear after one consume');
+  expect(!source.consumeRestartRequest(), 'a restart request must clear after one consume');
 
-  target.emit('keydown', 'KeyJ');
-  const neutralSnapshot = source.consumeCommand();
-  expect(
-    neutralSnapshot.actionDirectionX === 0 && neutralSnapshot.actionDirectionY === 0,
-    'an action without movement must preserve a zero snapshot for facing fallback',
-  );
+  const rightTarget = new FakeWindow();
+  const rightSource = createCharacterPointerInputSource(rightTarget as unknown as Window, 128);
+  expect(rightSource.consumeCommand().aimStep === 128, 'the right-side fighter must preserve its supplied initial aim step');
+
+  const noPointerCoordinates = source.consumeCommand() as unknown as Record<string, unknown>;
+  expect(!('clientX' in noPointerCoordinates) && !('clientY' in noPointerCoordinates), 'raw pointer coordinates must not leave the input boundary');
 
   source.dispose();
-  console.log('Character input cases: 14/14 observed');
+  target.dispatch('keydown', { code: 'KeyE', repeat: false });
+  expect(source.consumeCommand().queuedAction === 'none', 'dispose must remove input listeners');
+  rightSource.dispose();
+
+  console.log(`Character pointer input cases: ${cases}/${cases} observed`);
 }
 
 main();
