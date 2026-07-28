@@ -3,28 +3,32 @@
 > Claude ↔ Codex 세션 제한 릴레이의 인계 상태 파일. **작업 시작 전 읽고, 손 떼기 전 갱신한다.** 규칙 전문은 리포 루트 `AGENTS.md`.
 
 ## 현재 상태 (last updated: 2026-07-28, by Codex)
-- **현재 담당:** Codex Task 3 fixed-tick simulation 이행 전. Task 2의 1차 리뷰 Important chord 항목은 fix round 1 범위에서 ADDRESSED로 판정됐고 새 Critical·Important 항목은 보고되지 않았다.
-- **코어 상태:** `7715a53`은 256-step aim·가드 자원 제거·카운터/대시 상태 필드를 기록한다. `0efaf93`은 임시 `LegacyCharacterInputCommand`/`actionDirectionX/Y`를 `CharacterPointerInputSource`로 교체했고, `ca95c13`은 chord별 버튼 전이를 위해 LMB/RMB를 `mousedown`/`mouseup`으로 읽도록 보정했다. 이 경계는 WASD/방향키 이동, pointer→`aimStep`, 좌클릭 공격, `E` 스킬, 이동 스냅샷 `Space` 대시, 우클릭 held guard, `R` 재시작만 `CharacterInputCommand`으로 내보낸다. raw pointer 좌표는 `src/app/characterInput.ts` 밖으로 내보내지 않는다. Task 3 전투 시뮬레이션과 세션/렌더 연결은 미착수다.
+- **현재 담당:** Codex Task 3 독립 검토 대기. `30bc060`은 fixed-tick lifecycle 코드·스모크를 기록한다. Task 4 판정·세션/렌더·network 연결은 시작하지 않았다.
+- **코어 상태:** `7715a53`은 256-step aim·가드 자원 제거·카운터/대시 상태 필드를 기록한다. `0efaf93`은 포인터 입력 경계, `ca95c13`은 mouse-button chord 보정이다. `30bc060`은 순수 `src/game/character/simulation.ts`에 Task 3 tick 순서·공유 velocity/drag·행동/가드 전이를 추가했다. Task 4의 히트, 가드 판정, 링아웃, 타임아웃과 세션/렌더 연결은 아직 범위 밖이다.
 - **조작·가드 보완 계약:** `docs/superpowers/specs/2026-07-28-mouse-aim-guard-matchup-design.md` — PM이 키보드 이동/마우스 조준 분리, 좌클릭 공격, `E` 스킬, 우클릭 무제한 전면 가드, 이동방향 대시, 256단계 조준, 대시 가드브레이크 넉백 증폭, 좌클릭 반격을 결정했다. 서면 검토 발견 사항은 §8 보정 규칙으로 반영됐고, PM이 2026-07-28 재검토에서 옵션 1(§8.6 봇 순서 명시, §8.1 리셋 동결 이동 거부, RELAY 참조 정리)을 승인했다. 대체 구현 계획은 `docs/superpowers/plans/2026-07-28-mouse-aim-combat-core.md`로 작성됐다(보완 문서 §8 인용, §8.8 요건 충족 — Codex 구현·PM 판정 대기).
 - **전환 기준:** 기본 계약은 `docs/superpowers/specs/2026-07-28-character-arena-design.md`, 입력·관성·상성 가드 보완 계약은 `docs/superpowers/specs/2026-07-28-mouse-aim-guard-matchup-design.md`다. 후자의 서면 검토와 PM 승인은 2026-07-28에 기록됐다. 새 구현 계획은 보완 문서 §8을 인용해야 하며, 두 문서가 충돌하면 보완 문서 §8이 우선한다.
 - **로컬 복귀선:** `spinner-baseline-2026-07-28` → `f97bca1` (원격 전송 금지). 8/2 23:00에는 기본 계약 문서(`2026-07-28-character-arena-design.md`) §8.2의 4개 관측으로 캐릭터 후보/태그 기준을 PM이 선택한다(보완 문서의 §8.2와 다른 절이니 혼동 금지).
 - **Claude 제한 해제 예정 시각:** `[UNSUPPORTED]` — 마지막 메시지는 "monthly spend limit"만 표시했고, 복귀 시각을 제공하지 않았다. 다음 Claude 제한 메시지에 시각이 있으면 이 줄에 기록한다.
 - **Codex 복귀 가능 시각:** `[UNSUPPORTED]` — 현재 세션에서 제한 해제 시각이 제공되지 않았다.
-- **브랜치:** `s2-run`; 최신 로컬 기능 커밋은 Task 2 입력 경계 `0efaf93`이다. remote `origin`은 있고, **push 금지**.
+- **브랜치:** `s2-run`; 최신 로컬 기능 커밋은 Task 3 lifecycle `30bc060`이다. remote `origin`은 있고, **push 금지**.
 - **트리:** 작업 시작 전 `git log --oneline -5`·`git status`로 코드·문서 커밋을 함께 확인한다. remote push는 PM 전용이다.
 ## 진행 중 작업
 - **S3 공개 relay 배선:** `1ad9f62`에 GitHub Actions `VITE_RELAY_URL` 주입, direct Vite env access, local relay build smoke, PM Cloudflare/Pages 절차가 있다. 공개 Worker endpoint와 Canvas 두 브라우저 관찰은 PM 게이트다.
 - **PM 게이트:** Cloudflare 로그인·`npm run relay:deploy`·GitHub Actions 변수 등록·원격 push·공개 Worker/Canvas 두 브라우저 관찰은 PM 계정과 브라우저가 필요한 작업이다. PM 부재 시 모바일 조작·제출물 큐로 이동한다.
 ## 다음 작업 큐 (우선순위 순, 각 완료 기준 포함)
-0. **[Task 3 구현] 캐릭터 시뮬레이션·관성·행동 lifecycle** — `docs/superpowers/plans/2026-07-28-mouse-aim-combat-core.md` Task 3. fixed tick 순서, 공유 velocity/drag, keyboard acceleration, movement-snapshot dash, `aimStep` facing, reset-frozen 이동 거부를 구현한다. Task 2의 first-review 및 fix round 1 재검토 기록은 아래 인계 로그에 있다.
-1. **[Task 3 미착수] 캐릭터 시뮬레이션·관성·행동 lifecycle** — `docs/superpowers/plans/2026-07-28-mouse-aim-combat-core.md` Task 3. fixed tick 순서, 공유 velocity/drag, keyboard acceleration, movement-snapshot dash, `aimStep` facing, reset-frozen 이동 거부를 구현한다. Task 2 독립 검토 기록 뒤 시작한다.
-2. **[Task 4 미착수] 가드·카운터·링아웃·타임아웃 판정** — 같은 계획 Task 4. 무제한 상성 가드, 좌클릭 반격, dash guard-break, ring-out 체력 페널티, health→center→draw 판정 및 byte-equal smoke를 구현한다.
-3. **장비·12판 런 이행** — `equipment.ts`와 무기/방어구/장신구 보상·강화·격납고 변환. 착수 전에 싱글플레이 플랜에 보완 문서 §8.5 대체표(counterWindow 등)를 반영한다. 완료 기준: 11회 보상과 세 슬롯이 12판 흐름에서 보인다.
-4. **봇·링아웃·측정** — 새 봇 4티어와 링아웃 체력 페널티. 봇 결정 순서는 보완 문서 §8.6의 7단계를 따른다. 완료 기준: 기본 계약 문서 §9의 bot/ring-out/timeout 스모크(가드 자원 항목은 보완 문서 §6·§8.7로 대체)와 한 런 관측을 기록한다. 미러봇은 활성화하지 않는다.
-5. **PvP v2** — 새 입력·장비 ID를 protocol/relay/two-tab 경로에 반영한다. 입력 프레임은 8필드 `CharacterInputCommand`(`aimStep`/`actionAimStep` 정수 0..255 검증)로 개정한다. 8/2 23:00 전 관측이 없으면 로컬 2인 범위로 강등한다.
-6. **제출물** — 게임 소개·실행 방법 PDF(#3), AI 활용 기술 PDF(#4), 30~60초 영상. 캐릭터 후보를 선택한 경우 영상 컷은 기본 계약 문서 §8.3을 쓴다.
-
+0. **[Task 3 독립 검토 대기] 캐릭터 시뮬레이션·관성·행동 lifecycle** — `30bc060`을 `docs/superpowers/plans/2026-07-28-mouse-aim-combat-core.md` Task 3 및 보완 명세 §8.1~§8.4와 대조한다. focused smoke `25/25`, build exit `0`은 로컬 관측이며, 독립 리뷰 전 Task 4를 시작하지 않는다.
+1. **[Task 4 미착수] 가드·카운터·링아웃·타임아웃 판정** — 같은 계획 Task 4. 무제한 상성 가드, 좌클릭 반격, dash guard-break, ring-out 체력 페널티, health→center→draw 판정 및 byte-equal smoke를 구현한다.
+2. **장비·12판 런 이행** — `equipment.ts`와 무기/방어구/장신구 보상·강화·격납고 변환. 착수 전에 싱글플레이 플랜에 보완 문서 §8.5 대체표(counterWindow 등)를 반영한다.
+3. **봇·링아웃·측정** — 새 봇 4티어와 링아웃 체력 페널티. 봇 결정 순서는 보완 문서 §8.6의 7단계를 따른다. 미러봇은 활성화하지 않는다.
+4. **PvP v2** — 새 입력·장비 ID를 protocol/relay/two-tab 경로에 반영한다. 8/2 23:00 전 관측이 없으면 로컬 2인 범위로 강등한다.
+5. **제출물** — 게임 소개·실행 방법 PDF(#3), AI 활용 기술 PDF(#4), 30~60초 영상.
 ## 인계 로그 (append-only, 최신이 위)
+### 2026-07-28 — Codex Task 3 fixed-tick lifecycle handoff → independent review
+- 구현 커밋: `30bc060 feat(character): add aim-step simulation lifecycle`. remote push·remote 변경은 하지 않았다.
+- 범위: events clear → tick/clock → timer → validated input/action/guard → dash impulse placeholder → movement 순서를 `src/game/character/simulation.ts`에 기록했다. hit/guard cone/damage/ring-out/time-limit resolution은 Task 4 자리표시자로 남았다.
+- TDD red: production 모듈 전 `npm run smoke:character-combat`은 exit 1과 `[UNRESOLVED_IMPORT] Could not resolve '../src/game/character/simulation'`을 출력했다. 후속 회귀 red는 ready phase의 invalid `actionAimStep`이 무시되는 경로로, `Error: invalid action aim steps must throw before a non-fighting phase can ignore them`을 출력했다.
+- 관측(2026-07-28 콘솔): `npm run smoke:character-combat` 25/25, `npm run smoke:character-state` 21/21, `npm run build` exit 0, `npm run smoke:run` 동일 시드 8/8. 수치 적합성과 사람 조작감은 `[UNSUPPORTED]`이다.
+- 다음: `30bc060` 독립 리뷰를 먼저 기록한다. Task 4, session/renderer/network, remote push는 시작하지 않는다.
 ### 2026-07-28 — Codex Task 2 chord fix re-review 기록 → Task 3 전환
 - 이전 Important 항목: RMB held 중 LMB action과 LMB held 중 RMB release의 button transition이 `pointerdown`/`pointerup`에 의존해 누락될 수 있었다.
 - fix 범위: `bcb76bc..9675b6a`. scoped re-review는 `mousedown`/`mouseup` 전이와 chord smoke를 대조해 해당 항목을 ADDRESSED로 기록했고, fix diff의 새 Critical·Important 항목을 보고하지 않았다.

@@ -1807,3 +1807,28 @@ GitHub Pages의 public build가 PM이 등록한 `VITE_RELAY_URL`을 받아 `wss:
 - scoped re-review 범위 `bcb76bc..9675b6a`는 해당 항목을 ADDRESSED로 기록했고 새 Critical·Important 항목을 보고하지 않았다.
 - controller 재실행: `npm run smoke:character-input` 30/30, `npm run build` exit 0 (2026-07-28 콘솔). Browser canvas/session에서의 실제 chord 관찰은 아직 `[UNSUPPORTED]`이다.
 - 다음 범위: Task 3은 이 입력 프레임을 소비하는 순수 fixed-tick character simulation을 만든다.
+## 2026-07-28 - Mouse-Aim Combat Core Task 3: fixed-tick lifecycle
+
+### Goal
+
+- Implement Task 3 of `docs/superpowers/plans/2026-07-28-mouse-aim-combat-core.md`: deterministic lifecycle ordering, aim validation, action/guard transitions, shared-velocity movement, and a dash impulse placeholder. Hit resolution, ring-out, and timeout remain Task 4 scope.
+
+### Red evidence
+
+- Before production simulation existed, `npm run smoke:character-combat` exited `1`: `[UNRESOLVED_IMPORT] Could not resolve '../src/game/character/simulation' in tools/characterCombat.ts`.
+- A ready-phase invalid `actionAimStep` case then exited `1` with `invalid action aim steps must throw before a non-fighting phase can ignore them`; the simulation now validates command aim in non-fighting phases before returning.
+
+### Code and observed commands
+
+- Commit `30bc060` adds `src/game/character/simulation.ts`, `tools/characterCombat.ts`, and `smoke:character-combat`.
+- The simulation uses Task 3's order: clear events/tick/clocks; timers; validated input and action/guard transitions; first-active dash impulse; acceleration/drag/clamps/integration; Task 4 resolution placeholder.
+- Observed (2026-07-28 console): `npm run smoke:character-combat` → `Character combat lifecycle cases: 25/25 observed`; `npm run smoke:character-state` → `21/21`; `npm run build` → exit `0`; `npm run smoke:run` → `동일 시드 재현(런 구동 전체): 8/8 일치`.
+
+### [UNSUPPORTED]
+
+- Motion, timing, guard, and counter constants have lifecycle coverage only. Character harness measurements and human-play observations are still required for numeric suitability.
+- Task 3 does not calculate hit damage, guard cone outcomes, counter grants, ring-out penalties, or time-limit results.
+
+### Next review boundary
+
+- Independent review of `30bc060` is pending. Task 4, session/renderer/network wiring, and remote push remain outside this task.
