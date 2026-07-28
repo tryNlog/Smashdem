@@ -73,7 +73,18 @@ function main(): void {
   expect(source.consumeCommand().aimStep === 192, 'a pointer at the fighter origin must preserve the prior valid aim');
 
   source.setFighterScreenOrigin(100, 200);
-  target.dispatch('pointerdown', { button: 0, clientX: 100, clientY: 300 });
+  target.dispatch('mousedown', { button: 2, clientX: 100, clientY: 200 });
+  target.dispatch('mousedown', { button: 0, clientX: 100, clientY: 300 });
+  const guardedAttack = source.consumeCommand();
+  expect(
+    guardedAttack.guard && guardedAttack.queuedAction === 'attack',
+    'holding RMB while LMB is pressed must keep guard held and queue an attack',
+  );
+  target.dispatch('mouseup', { button: 2, clientX: 100, clientY: 300 });
+  expect(!source.consumeCommand().guard, 'releasing RMB while LMB remains held must clear guard');
+  target.dispatch('mouseup', { button: 0, clientX: 100, clientY: 300 });
+
+  target.dispatch('mousedown', { button: 0, clientX: 100, clientY: 300 });
   target.dispatch('pointermove', { clientX: 200, clientY: 200 });
   const attack = source.consumeCommand();
   expect(attack.queuedAction === 'attack', 'left mouse must queue an attack');
@@ -107,26 +118,26 @@ function main(): void {
   target.dispatch('keyup', { code: 'ArrowRight' });
 
   target.dispatch('keydown', { code: 'KeyE', repeat: false });
-  target.dispatch('pointerdown', { button: 0, clientX: 200, clientY: 200 });
+  target.dispatch('mousedown', { button: 0, clientX: 200, clientY: 200 });
   const latestAction = source.consumeCommand();
   expect(latestAction.queuedAction === 'attack', 'the latest valid action edge must replace an unconsumed action');
 
-  target.dispatch('pointerdown', { button: 2 });
+  target.dispatch('mousedown', { button: 2 });
   expect(source.consumeCommand().guard, 'right mouse hold must enable guard');
   const contextMenu = target.dispatch('contextmenu');
   expect(contextMenu.defaultPrevented, 'the input boundary must prevent the browser context menu');
-  target.dispatch('pointerup', { button: 2 });
+  target.dispatch('mouseup', { button: 2 });
   expect(!source.consumeCommand().guard, 'right mouse release must end guard');
 
   target.dispatch('keydown', { code: 'KeyA', repeat: false });
-  target.dispatch('pointerdown', { button: 2 });
+  target.dispatch('mousedown', { button: 2 });
   target.dispatch('blur');
   const afterBlur = source.consumeCommand();
   expect(afterBlur.moveX === 0 && afterBlur.moveY === 0, 'blur must clear held movement input');
   expect(!afterBlur.guard, 'blur must clear held guard input');
 
   target.dispatch('keydown', { code: 'ArrowDown', repeat: false });
-  target.dispatch('pointerdown', { button: 2 });
+  target.dispatch('mousedown', { button: 2 });
   target.dispatch('pointercancel');
   const afterPointerCancel = source.consumeCommand();
   expect(afterPointerCancel.moveX === 0 && afterPointerCancel.moveY === 0, 'pointercancel must clear held movement input');

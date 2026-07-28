@@ -129,13 +129,13 @@ export function createCharacterPointerInputSource(
     recordPointer(event);
   }
 
-  function handlePointerDown(event: PointerEvent): void {
+  function handleMouseDown(event: MouseEvent): void {
     recordPointer(event);
     if (event.button === 0) queueAimAction('attack');
     if (event.button === 2) guardHeld = true;
   }
 
-  function handlePointerUp(event: PointerEvent): void {
+  function handleMouseUp(event: MouseEvent): void {
     if (event.button === 2) guardHeld = false;
   }
 
@@ -151,8 +151,8 @@ export function createCharacterPointerInputSource(
   target.addEventListener('keydown', handleKeyDown);
   target.addEventListener('keyup', handleKeyUp);
   target.addEventListener('pointermove', handlePointerMove);
-  target.addEventListener('pointerdown', handlePointerDown);
-  target.addEventListener('pointerup', handlePointerUp);
+  target.addEventListener('mousedown', handleMouseDown);
+  target.addEventListener('mouseup', handleMouseUp);
   target.addEventListener('pointercancel', clearHeldInput);
   target.addEventListener('contextmenu', handleContextMenu);
   target.addEventListener('blur', clearHeldInput);
@@ -189,8 +189,8 @@ export function createCharacterPointerInputSource(
       target.removeEventListener('keydown', handleKeyDown);
       target.removeEventListener('keyup', handleKeyUp);
       target.removeEventListener('pointermove', handlePointerMove);
-      target.removeEventListener('pointerdown', handlePointerDown);
-      target.removeEventListener('pointerup', handlePointerUp);
+      target.removeEventListener('mousedown', handleMouseDown);
+      target.removeEventListener('mouseup', handleMouseUp);
       target.removeEventListener('pointercancel', clearHeldInput);
       target.removeEventListener('contextmenu', handleContextMenu);
       target.removeEventListener('blur', clearHeldInput);
