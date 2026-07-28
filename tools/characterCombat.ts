@@ -106,11 +106,32 @@ function main(): void {
   advance(state, actionTotalSeconds(left.profile.normalAttack), { guard: true });
   expect(left.actionState === 'guarding', 'held guard must resume after action recovery');
 
+  const rejectedGuardState = createFightingState();
+  const rejectedGuard = rejectedGuardState.combatants[0]!;
+  step(rejectedGuardState, { guard: true });
+  step(rejectedGuardState, { guard: false, queuedAction: 'dash', actionAimStep: 32 });
+  expect(
+    rejectedGuard.actionState === 'idle',
+    'a rejected zero-direction dash must still release guard in the same tick',
+  );
+
   const zeroDashState = createFightingState();
   const zeroDash = zeroDashState.combatants[0]!;
   queueAction(zeroDashState, 'dash');
   expect(zeroDash.actionState === 'idle', 'a zero-direction dash must not begin');
   expect(zeroDash.dashCooldownSeconds === 0, 'a zero-direction dash must not consume cooldown');
+
+  const preClampDashState = createFightingState();
+  const preClampDash = preClampDashState.combatants[0]!;
+  preClampDash.velocityX = 500;
+  queueAction(preClampDashState, 'dash', { dashMoveX: 1, dashMoveY: 0 });
+  step(preClampDashState);
+  step(preClampDashState);
+  step(preClampDashState);
+  expect(
+    Math.abs(preClampDash.velocityX - Balance.CHARACTER_MAX_TOTAL_SPEED) < 0.000001,
+    'a dash impulse must reach movement drag before the shared global clamp',
+  );
 
   const dashState = createFightingState();
   const dash = dashState.combatants[0]!;

@@ -197,7 +197,6 @@ function applyInput(
     }
   }
 
-  if (action !== 'none') return;
   if (combatant.actionState === 'idle' && command.guard) {
     combatant.actionState = 'guarding';
   } else if (combatant.actionState === 'guarding' && !command.guard) {
@@ -213,7 +212,7 @@ function applyDashImpulses(state: CharacterBattleState): void {
 
     combatant.velocityX += combatant.dashDirectionX * Balance.CHARACTER_DASH_IMPULSE;
     combatant.velocityY += combatant.dashDirectionY * Balance.CHARACTER_DASH_IMPULSE;
-    clampSpeed(combatant, Balance.CHARACTER_MAX_TOTAL_SPEED);
+    // Movement applies drag and the shared global clamp after this hit-phase impulse.
     combatant.dashImpulsePending = false;
   }
 
