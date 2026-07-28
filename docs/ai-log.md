@@ -1712,3 +1712,32 @@ GitHub Pages의 public build가 PM이 등록한 `VITE_RELAY_URL`을 받아 `wss:
 
 - 계획의 신규 상수(공격 아크 cos45°, 드래그 3.5/s, 대시 임펄스 420, 총속도 상한 640 포함)는 측정 전 시작값이다.
 - 계획의 구현 가능성·태스크 분해 적정성은 Codex 구현과 스모크 관측 전이다.
+
+## 2026-07-28 - Mouse-Aim Combat Core Task 1: state and aim migration
+
+### Goal
+
+- Replace the interim character guard-resource state with the approved 256-step aim and matchup-guard state boundary from `docs/superpowers/specs/2026-07-28-mouse-aim-guard-matchup-design.md` §8 and Task 1 of `docs/superpowers/plans/2026-07-28-mouse-aim-combat-core.md`.
+
+### Red evidence
+
+- Before production changes, `npm run smoke:character-state` exited `1`. Vite reported `[UNRESOLVED_IMPORT] Could not resolve '../src/game/character/aim' in tools/characterState.ts`.
+- The red harness asserted the cardinal `AimStep` mapping, 0/128 spawn facing, absence of `guard`, `guardRegenDelaySeconds`, and `hitCooldowns`, neutral command aim retention, and state clone serialization.
+
+### Code and observed commands
+
+- Commit `7715a53` adds `src/game/character/aim.ts` with `AIM_STEP_COUNT = 256`, integer validation, and the sole `aimStepToUnit()` conversion in the character combat layer.
+- `types.ts` replaces action-direction fields with `aimStep`, `actionAimStep`, and dash movement snapshots; removes `ActionProfile.guardDamage`, `CombatStats.guardMaximum`, combatant guard-resource fields, and battle `hitCooldowns`; adds counter/dash/action fields required by the next simulation task.
+- `battleState.ts` initializes combatant 0/1 at aim steps 0/128 and initializes `activeCounterMultiplier` at 1. State clone remains a deep copy of combatants, random state, and events.
+- `balance.ts` removes the four guard-resource constants and adds the Task 1 guard/counter/motion starting values with `[UNSUPPORTED]` comments.
+- Scope expansion: `src/app/characterInput.ts` required a temporary local `LegacyCharacterInputCommand` return shape because TypeScript includes `tools/characterInput.ts`, which still reads the retired `actionDirectionX/Y` fields. The canonical `CharacterInputCommand` does not retain them. Task 2 replaces this boundary with the pointer input contract; `tools/characterInput.ts` was not changed.
+- Observed: `npm run smoke:character-state` printed `Character state cases: 21/21 observed`; `npm run smoke:character-input` printed `Character input cases: 14/14 observed`; `npm run build` exited `0`; `npm run smoke:run` printed `동일 시드 재현(런 구동 전체): 8/8 일치`; `git diff --check` printed no whitespace errors.
+
+### [UNSUPPORTED]
+
+- `CHARACTER_GUARD_MOVE_ACCELERATION_MULTIPLIER=0.60`, `CHARACTER_GUARD_BREAK_KNOCKBACK_MULTIPLIER=1.60`, counter multipliers `1.35/1.75`, reinforced stagger `0.35s`, counter window `0.80s`, attack arc cosine, drag `3.5/s`, dash impulse `420`, and total speed cap `640` require the character combat harness and human-play observation.
+- The temporary compatibility boundary has no pointer/mouse human-play observation; it exists only to keep the pre-Task-2 input smoke type-compatible.
+
+### Next review boundary
+
+- Reviewer inspection is pending for `7715a53` against `.superpowers/sdd/2026-07-28-mouse-aim-combat-core/task-1-brief.md`. Task 2 has not started.

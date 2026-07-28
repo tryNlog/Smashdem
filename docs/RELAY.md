@@ -2,9 +2,9 @@
 
 > Claude ↔ Codex 세션 제한 릴레이의 인계 상태 파일. **작업 시작 전 읽고, 손 떼기 전 갱신한다.** 규칙 전문은 리포 루트 `AGENTS.md`.
 
-## 현재 상태 (last updated: 2026-07-28, by Claude)
-- **현재 담당:** Claude → Codex 인계 대기 (PM이 대체 구현 계획과 변경점을 Codex에 직접 전달 예정)
-- **코어 상태:** Task 1의 직렬화 상태 경계는 `fd7044d`·`2f39e48`에 기록되어 있다. Task 2의 키보드 행동 입력 `7148034`은 새 조작 계약 이전의 로컬 코드이며, 검토·세션 연결 전 교체 대상으로 둔다.
+## 현재 상태 (last updated: 2026-07-28, by Codex)
+- **현재 담당:** Codex Task 1 구현 인계 → Task 1 리뷰 대기. 같은 `s2-run` 브랜치에 동시 작성자는 없다.
+- **코어 상태:** `7715a53`은 `aim.ts`의 256-step 변환, 가드 자원/전역 hit cooldown 제거, `facingAimStep` 0/128 초기화, 카운터/대시 상태 필드를 기록한다. `src/app/characterInput.ts`은 Task 2 포인터 입력 교체 전, 기존 `tools/characterInput.ts`의 `actionDirectionX/Y` 판독만 유지하는 로컬 호환 반환형이다. 새 `CharacterInputCommand`에는 해당 필드가 없다. Task 2의 키보드 행동 입력 `7148034`은 새 조작 계약 이전의 로컬 코드이며, 검토·세션 연결 전 교체 대상으로 둔다.
 - **조작·가드 보완 계약:** `docs/superpowers/specs/2026-07-28-mouse-aim-guard-matchup-design.md` — PM이 키보드 이동/마우스 조준 분리, 좌클릭 공격, `E` 스킬, 우클릭 무제한 전면 가드, 이동방향 대시, 256단계 조준, 대시 가드브레이크 넉백 증폭, 좌클릭 반격을 결정했다. 서면 검토 발견 사항은 §8 보정 규칙으로 반영됐고, PM이 2026-07-28 재검토에서 옵션 1(§8.6 봇 순서 명시, §8.1 리셋 동결 이동 거부, RELAY 참조 정리)을 승인했다. 대체 구현 계획은 `docs/superpowers/plans/2026-07-28-mouse-aim-combat-core.md`로 작성됐다(보완 문서 §8 인용, §8.8 요건 충족 — Codex 구현·PM 판정 대기).
 - **전환 기준:** 기본 계약은 `docs/superpowers/specs/2026-07-28-character-arena-design.md`, 입력·관성·상성 가드 보완 계약은 `docs/superpowers/specs/2026-07-28-mouse-aim-guard-matchup-design.md`다. 후자의 서면 검토와 PM 승인은 2026-07-28에 기록됐다. 새 구현 계획은 보완 문서 §8을 인용해야 하며, 두 문서가 충돌하면 보완 문서 §8이 우선한다.
 - **로컬 복귀선:** `spinner-baseline-2026-07-28` → `f97bca1` (원격 전송 금지). 8/2 23:00에는 기본 계약 문서(`2026-07-28-character-arena-design.md`) §8.2의 4개 관측으로 캐릭터 후보/태그 기준을 PM이 선택한다(보완 문서의 §8.2와 다른 절이니 혼동 금지).
@@ -16,12 +16,20 @@
 - **S3 공개 relay 배선:** `1ad9f62`에 GitHub Actions `VITE_RELAY_URL` 주입, direct Vite env access, local relay build smoke, PM Cloudflare/Pages 절차가 있다. 공개 Worker endpoint와 Canvas 두 브라우저 관찰은 PM 게이트다.
 - **PM 게이트:** Cloudflare 로그인·`npm run relay:deploy`·GitHub Actions 변수 등록·원격 push·공개 Worker/Canvas 두 브라우저 관찰은 PM 계정과 브라우저가 필요한 작업이다. PM 부재 시 모바일 조작·제출물 큐로 이동한다.
 ## 다음 작업 큐 (우선순위 순, 각 완료 기준 포함)
-0. **[Codex 착수 대상] 마우스 조준 코어 구현** — `docs/superpowers/plans/2026-07-28-mouse-aim-combat-core.md`(보완 문서 §8 인용, 기존 core 플랜 Task 1~5 대체)의 Task 1(상태·aim 이행)부터 Task 5(인계)까지 순서대로. R-3(틱 파이프라인 순서 normative 고정)·P-1(카운터 만료 스모크)이 계획에 포함돼 있다. Task 1 상태 코드(`fd7044d`·`2f39e48`)는 계획 Task 1이 이행하고, 구 Task 2(`7148034`)는 계획 Task 2가 교체한다. 완료 기준: 각 Task의 스모크·빌드 관측이 ai-log에 기록되고 커밋된다.
+0. **[Task 1 리뷰 대기] 마우스 조준 코어 구현** — `7715a53`을 `docs/superpowers/plans/2026-07-28-mouse-aim-combat-core.md` Task 1과 `task-1-brief.md`에 대조한다. 리뷰 범위는 `aim.ts`, 상태/상수/팩토리/clone, `tools/characterState.ts`, 그리고 Task 2 전 임시 `src/app/characterInput.ts` 호환 경계다. 리뷰 기록 후에만 Task 2(포인터 입력 경계)를 시작한다. R-3(틱 파이프라인 순서 normative 고정)·P-1(카운터 만료 스모크)은 Task 3/4 범위에 남는다.
 1. **장비·12판 런 이행** — `equipment.ts`와 무기/방어구/장신구 보상·강화·격납고 변환. 착수 전에 싱글플레이 플랜에 보완 문서 §8.5 대체표(counterWindow 등)를 반영한다. 완료 기준: 11회 보상과 세 슬롯이 12판 흐름에서 보인다.
 2. **봇·링아웃·측정** — 새 봇 4티어와 링아웃 체력 페널티. 봇 결정 순서는 보완 문서 §8.6의 7단계를 따른다. 완료 기준: 기본 계약 문서 §9의 bot/ring-out/timeout 스모크(가드 자원 항목은 보완 문서 §6·§8.7로 대체)와 한 런 관측을 기록한다. 미러봇은 활성화하지 않는다.
 3. **PvP v2** — 새 입력·장비 ID를 protocol/relay/two-tab 경로에 반영한다. 입력 프레임은 8필드 `CharacterInputCommand`(`aimStep`/`actionAimStep` 정수 0..255 검증)로 개정한다. 8/2 23:00 전 관측이 없으면 로컬 2인 범위로 강등한다.
 4. **제출물** — 게임 소개·실행 방법 PDF(#3), AI 활용 기술 PDF(#4), 30~60초 영상. 캐릭터 후보를 선택한 경우 영상 컷은 기본 계약 문서 §8.3을 쓴다.
 ## 인계 로그 (append-only, 최신이 위)
+### 2026-07-28 — Codex Task 1 state and aim migration → reviewer handoff
+- 코드 커밋: `7715a53 feat(character): migrate state to aim-step matchup guard` (local only; push/remote 변경 없음).
+- red 관측: `npm run smoke:character-state`는 `src/game/character/aim` 부재로 `[UNRESOLVED_IMPORT] Could not resolve '../src/game/character/aim'`를 출력하고 exit 1이었다.
+- 구현 범위: `src/game/character/aim.ts`, `types.ts`, `balance.ts`, `battleState.ts`, `tools/characterState.ts`, 그리고 build 호환을 위한 `src/app/characterInput.ts`의 임시 로컬 반환형. 기존 `tools/characterInput.ts`은 편집하지 않았다.
+- green 관측(2026-07-28 콘솔): `smoke:character-state` 21/21, `smoke:character-input` 14/14, `npm run build` exit 0, `smoke:run` 동일 시드 8/8. `git diff --check`은 출력 없음이었다.
+- [UNSUPPORTED]: 가드 이동 0.60, 가드브레이크 넉백 1.60, 기본/강화 반격 1.35/1.75, 강화 반격 경직 0.35초, 카운터 창 0.80초, 공격 아크 cos45, 드래그 3.5/s, 대시 임펄스 420, 속도 상한 640은 character harness/사람 플레이 근거가 없다.
+- 다음: reviewer가 `7715a53`을 Task 1 brief와 명세 §8.1~§8.4에 대조한다. 리뷰 기록 전에는 Task 2를 시작하지 않는다.
+
 ### 2026-07-28 — Claude 대체 구현 계획 작성 → PM 경유 Codex 인계
 - 산출물: `docs/superpowers/plans/2026-07-28-mouse-aim-combat-core.md` — 보완 문서 §8 인용(§8.8 요건), 기존 core 플랜 Task 1~5 대체. Task 1 상태·aim 이행(가드 게이지 필드 제거, `facingAimStep` 0/128, `aim.ts` 신설), Task 2 포인터 입력 경계(`7148034` 교체), Task 3 시뮬 파이프라인(틱 내 처리 순서 normative 고정 = 검토 R-3 종결), Task 4 가드/카운터/링아웃/타임아웃 판정(카운터 만료 스모크 = 검토 P-1 종결, §6-8 byte-equal 8회 루프), Task 5 인계.
 - 범위 제외(후속 플랜 개정에서): 장비(§8.5), 봇(§8.6), PvP v2 프레임 검증, 렌더러/세션 연결.
