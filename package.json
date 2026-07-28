@@ -21,6 +21,7 @@
     "smoke:relay-build": "node tools/relayBuild.mjs",
     "smoke:touch-input": "vite build --ssr tools/touchInput.ts --outDir dist-tools --logLevel warn && node dist-tools/touchInput.js",
     "smoke:character-state": "vite build --ssr tools/characterState.ts --outDir dist-tools --logLevel warn && node dist-tools/characterState.js",
+    "smoke:character-input": "vite build --ssr tools/characterInput.ts --outDir dist-tools --logLevel warn && node dist-tools/characterInput.js",
     "smoke:pvp-relay": "vite build --ssr tools/pvpRelay.ts --outDir dist-tools --logLevel warn && node dist-tools/pvpRelay.js",
     "smoke:relay-endpoint": "vite build --ssr tools/relayEndpoint.ts --outDir dist-tools --logLevel warn && node dist-tools/relayEndpoint.js",
     "relay:dev": "wrangler dev --config relay/wrangler.jsonc",

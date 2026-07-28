@@ -108,3 +108,10 @@
 - Factory smoke now observes maximum guard, `ready`, exact opposing central spawn coordinates, zero timers/cooldowns, neutral input, and independent random/event clone containers.
 - Observations: `npm run smoke:character-state` 14/14; `npm run build` exit 0; legacy `npm run smoke:run` same seed 8/8 (2026-07-28 console). Fix-round local commit ID is in `.superpowers/sdd/2026-07-28-character-arena-core/task-1-report.md` after commit.
 - `[UNSUPPORTED]`: character numeric suitability remains unmeasured; no legacy spinner or new character balance number was changed in this fix.
+
+### 2026-07-28 — Codex Core Plan Task 2 desktop action input
+- Red evidence: before implementation, `npx vite build --ssr tools/characterInput.ts --outDir dist-tools --logLevel warn` exited `1` with `[UNRESOLVED_IMPORT] Could not resolve '../src/app/characterInput' in tools/characterInput.ts:7:52`.
+- Code: `src/app/characterInput.ts` is the desktop-DOM boundary only. It returns quantized Task 1 `CharacterInputCommand` data: WASD/arrows movement, `J` attack, `Space` dash, `K` skill, held `L` guard, and `R` restart. Non-repeated actions replace the pending action and snapshot movement at action keydown; `consumeCommand()` clears exactly one queued action. A zero snapshot remains `(0, 0)` for simulation facing fallback. Character state/simulation, legacy input/session/render/network/touch modules, balance, and plans/specs were not modified.
+- Observations: `npm run smoke:character-input` 14/14; `npm run smoke:touch-input` 19/19; `npm run build` exit 0 (2026-07-28 console).
+- `[UNSUPPORTED]`: the source remains unconnected to character UI/session, so browser and human-device behavior are unobserved. The headless smoke covers queue conversion only.
+- Next: Core Plan Task 3 owns character simulation/action lifecycle. Claude return time remains `[UNSUPPORTED]`; Codex return time is this task handoff.

@@ -1608,3 +1608,27 @@ GitHub Pages의 public build가 PM이 등록한 `VITE_RELAY_URL`을 받아 `wss:
 ### [UNSUPPORTED] items
 
 - `[UNSUPPORTED]` The existing character numeric suitability record remains unchanged: Task 1 does not add character-harness or human-play measurement for the values in `src/game/character/balance.ts`.
+
+---
+
+## Character desktop action input boundary (Codex)
+
+**Date:** 2026-07-28
+**Scope:** Core Plan Task 2 only: desktop keyboard command conversion and action snapshot queue.
+
+### Red evidence
+
+- Before `src/app/characterInput.ts` existed, `npx vite build --ssr tools/characterInput.ts --outDir dist-tools --logLevel warn` exited `1`. Vite reported `[UNRESOLVED_IMPORT] Could not resolve '../src/app/characterInput' in tools/characterInput.ts:7:52`.
+
+### Code and observed commands
+
+- Added `src/app/characterInput.ts` as the desktop-DOM boundary. `createCharacterKeyboardInputSource()` quantizes WASD/arrow movement to `Axis`, maps `J` to `attack`, `Space` to `dash`, `K` to `skill`, and holds `L` for guard. It emits Task 1 `CharacterInputCommand` values only.
+- A non-repeated action replaces the prior pending action and stores the movement axes present at that action keydown. `consumeCommand()` returns that action once, then clears only the pending action and its stored axes. An action pressed with no held movement retains `(0, 0)` for the later simulation-facing fallback.
+- Added `tools/characterInput.ts` and `smoke:character-input` in `package.json`. The smoke uses a fake event target and observes action replacement, snapshot direction, one-consume clearing, WASD/arrows, held guard, repeated keydown suppression, restart consumption, and a zero action snapshot.
+- `npm run smoke:character-input` printed `Character input cases: 14/14 observed`.
+- `npm run smoke:touch-input` printed `Touch input cases: 19/19 observed`; no touch module was connected to the character input boundary.
+- `npm run build` exited `0` (`tsc --noEmit && vite build`; 32 modules transformed).
+
+### [UNSUPPORTED] items
+
+- `[UNSUPPORTED]` No browser or human-device observation has exercised this currently unconnected desktop input source. The recorded smoke covers command conversion and queue semantics only.
