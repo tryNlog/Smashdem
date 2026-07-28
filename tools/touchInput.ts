@@ -105,6 +105,21 @@ function main(): void {
   expect(turned.moveX === 0 && turned.moveY === -1, 'a deliberate perpendicular drag must switch direction without releasing');
   moveZone.emit('pointerup', 10);
 
+  moveZone.emit('pointerdown', 11, 95, 50);
+  burstButton.emit('pointerdown', 8);
+  moveZone.emit('pointermove', 11, 5, 50);
+  const burstDirection = source.consumeCommand();
+  expect(
+    burstDirection.burst && burstDirection.moveX === 1 && burstDirection.moveY === 0,
+    'burst must use the held direction at button press even when the stick moves before the next tick',
+  );
+  const movementAfterBurst = source.consumeCommand();
+  expect(
+    !movementAfterBurst.burst && movementAfterBurst.moveX === -1 && movementAfterBurst.moveY === 0,
+    'movement after a burst must use the latest stick direction',
+  );
+  moveZone.emit('pointerup', 11);
+
   burstButton.emit('pointerdown', 8);
   expect(source.consumeCommand().burst, 'burst pointerdown must queue one burst pulse');
   expect(!source.consumeCommand().burst, 'burst pulse must be consumed after one command');
@@ -121,7 +136,7 @@ function main(): void {
   );
   expect(merged.moveX === 0 && merged.moveY === 1 && merged.burst, 'keyboard and touch commands must merge without exceeding axis bounds');
 
-  console.log('Touch input cases: 17/17 observed');
+  console.log('Touch input cases: 19/19 observed');
 }
 
 main();

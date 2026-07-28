@@ -49,6 +49,8 @@ export function createTouchInputSource(elements: TouchInputElements): TouchInput
   let moveY = 0;
   let directionLatched = false;
   let burstQueued = false;
+  let burstMoveX = 0;
+  let burstMoveY = 0;
 
   function setKnob(x: number, y: number): void {
     elements.moveKnob.style.setProperty('transform', `translate(${Math.round(x)}px, ${Math.round(y)}px)`);
@@ -111,6 +113,9 @@ export function createTouchInputSource(elements: TouchInputElements): TouchInput
   function handleBurst(event: PointerEvent): void {
     if (!enabled) return;
     event.preventDefault();
+    // Pointer events and the 60Hz loop are independent. Preserve the intended direction at tap time.
+    burstMoveX = moveX;
+    burstMoveY = moveY;
     burstQueued = true;
   }
 
@@ -123,13 +128,19 @@ export function createTouchInputSource(elements: TouchInputElements): TouchInput
   return {
     consumeCommand(): InputCommand {
       const burst = enabled && burstQueued;
+      const commandMoveX = burst ? burstMoveX : moveX;
+      const commandMoveY = burst ? burstMoveY : moveY;
       burstQueued = false;
-      return enabled ? { moveX, moveY, burst } : { moveX: 0, moveY: 0, burst: false };
+      burstMoveX = 0;
+      burstMoveY = 0;
+      return enabled ? { moveX: commandMoveX, moveY: commandMoveY, burst } : { moveX: 0, moveY: 0, burst: false };
     },
     setEnabled(nextEnabled: boolean): void {
       enabled = nextEnabled;
       if (!enabled) {
         burstQueued = false;
+        burstMoveX = 0;
+        burstMoveY = 0;
         clearMovement();
       }
     },
@@ -141,6 +152,8 @@ export function createTouchInputSource(elements: TouchInputElements): TouchInput
       elements.burstButton.removeEventListener('pointerdown', handleBurst);
       enabled = false;
       burstQueued = false;
+      burstMoveX = 0;
+      burstMoveY = 0;
       clearMovement();
     },
   };
