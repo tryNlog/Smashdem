@@ -1748,3 +1748,29 @@ GitHub Pages의 public build가 PM이 등록한 `VITE_RELAY_URL`을 받아 `wss:
 - reviewer 보고: Critical·Important·Minor 항목 없음. diff 자체로 실제 실행·remote push 여부는 판정하지 못한다고 분리했다.
 - controller 재실행: `smoke:character-state` 21/21, `smoke:character-input` 14/14, `npm run build` exit 0, `smoke:run` 동일 시드 8/8 (2026-07-28 콘솔).
 - 다음 범위: Task 2가 기존 키 입력·임시 `actionDirectionX/Y` 호환을 마우스 포인터 조준 경계로 교체한다.
+## 2026-07-28 - Mouse-Aim Combat Core Task 2: pointer input boundary
+
+### Goal
+
+- Replace the superseded keyboard-action compatibility boundary with the approved desktop contract: keyboard movement only, pointer aim only, left-click attack, `E` skill, movement-snapshotted `Space` dash, right-click held guard, and `R` restart. Authority: `docs/superpowers/specs/2026-07-28-mouse-aim-guard-matchup-design.md` §2.1, §2.2, §8.1, and §8.2; implementation plan Task 2.
+
+### Red evidence
+
+- Before production changes, `npm run smoke:character-input` exited `1`. Vite reported `[MISSING_EXPORT] "createCharacterPointerInputSource" is not exported by "src/app/characterInput.ts"` at `tools/characterInput.ts:8:10`.
+
+### Code and observed commands
+
+- Commit `0efaf93` replaces `createCharacterKeyboardInputSource` and the temporary `LegacyCharacterInputCommand` with `createCharacterPointerInputSource`. Raw pointer coordinates remain in `src/app/characterInput.ts`; commands carry only `aimStep`, `actionAimStep`, and movement axes.
+- The source recomputes aim from the latest pointer and latest supplied fighter screen origin on every `consumeCommand()`. A same-point pointer or unavailable pointer/origin preserves the previous valid step. `initialAimStep` supports the right-side fighter at 128.
+- Action edges use one slot: a later valid left click, `E`, or non-zero `Space` dash replaces an earlier unconsumed action. A zero-direction Space press leaves the earlier queued action unchanged. `blur` and `pointercancel` clear held movement and guard; the context-menu handler prevents default.
+- Observed (2026-07-28 console): `npm run smoke:character-input` printed `Character pointer input cases: 28/28 observed`; `npm run smoke:touch-input` printed `19/19`; `npm run smoke:character-state` printed `21/21`; `npm run build` exited `0`. `git diff --check` printed no whitespace errors. A static `rg` scan of `src/game/character` found no DOM, `Date.now`, `Math.random`, or pointer-coordinate matches.
+- Test correction: the plan's illustrative stationary-pointer coordinates `(pointer 200,100; origin 100,200)` calculate to aim step 224 under its own `Math.atan2` formula, not 192. The smoke uses origin `(200,200)` to observe the stated upward step 192. The production quantization follows the normative formula.
+
+### [UNSUPPORTED]
+
+- The source is not connected to a character session, renderer, or browser canvas, so desktop pointer scaling, fighter-origin update cadence, and human control feel have no observation yet.
+- No character balance or timing value changed in Task 2. The `[UNSUPPORTED]` Task 1 combat constants remain pending the Task 3/4 harness and human play.
+
+### Next review boundary
+
+- Review `0efaf93` against Task 2 brief and the mouse-aim/matchup-guard spec before starting Task 3. Task 3 simulation, Task 4 resolution, and session/render wiring remain outside this change.
