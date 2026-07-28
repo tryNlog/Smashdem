@@ -1800,3 +1800,10 @@ GitHub Pages의 public build가 PM이 등록한 `VITE_RELAY_URL`을 받아 `wss:
 ### Next review boundary
 
 - Re-review only `0efaf93..ca95c13` for per-button LMB/RMB transitions, raw-pointer retention, and chord smoke. Task 3/4 and remote push remain outside this fix.
+
+## 2026-07-28 - Mouse-Aim Combat Core Task 2 chord 수정 재검토 (문서)
+
+- 1차 검토가 RMB held 중 LMB/RMB 각각의 전이를 `pointerdown`/`pointerup`으로 받을 수 없다는 Important 항목을 기록했다. `ca95c13`은 action/guard 버튼 경계를 `mousedown`/`mouseup`으로 변경하고, chord 두 방향의 fake-event 사례를 추가했다.
+- scoped re-review 범위 `bcb76bc..9675b6a`는 해당 항목을 ADDRESSED로 기록했고 새 Critical·Important 항목을 보고하지 않았다.
+- controller 재실행: `npm run smoke:character-input` 30/30, `npm run build` exit 0 (2026-07-28 콘솔). Browser canvas/session에서의 실제 chord 관찰은 아직 `[UNSUPPORTED]`이다.
+- 다음 범위: Task 3은 이 입력 프레임을 소비하는 순수 fixed-tick character simulation을 만든다.

@@ -3,7 +3,7 @@
 > Claude ↔ Codex 세션 제한 릴레이의 인계 상태 파일. **작업 시작 전 읽고, 손 떼기 전 갱신한다.** 규칙 전문은 리포 루트 `AGENTS.md`.
 
 ## 현재 상태 (last updated: 2026-07-28, by Codex)
-- **현재 담당:** Codex Task 2 review fix round 1 작성됨 (`ca95c13`); fix diff `0efaf93..ca95c13` 재검토 대기. Task 3 시뮬레이션·Task 4 판정은 아직 시작하지 않았다.
+- **현재 담당:** Codex Task 3 fixed-tick simulation 이행 전. Task 2의 1차 리뷰 Important chord 항목은 fix round 1 범위에서 ADDRESSED로 판정됐고 새 Critical·Important 항목은 보고되지 않았다.
 - **코어 상태:** `7715a53`은 256-step aim·가드 자원 제거·카운터/대시 상태 필드를 기록한다. `0efaf93`은 임시 `LegacyCharacterInputCommand`/`actionDirectionX/Y`를 `CharacterPointerInputSource`로 교체했고, `ca95c13`은 chord별 버튼 전이를 위해 LMB/RMB를 `mousedown`/`mouseup`으로 읽도록 보정했다. 이 경계는 WASD/방향키 이동, pointer→`aimStep`, 좌클릭 공격, `E` 스킬, 이동 스냅샷 `Space` 대시, 우클릭 held guard, `R` 재시작만 `CharacterInputCommand`으로 내보낸다. raw pointer 좌표는 `src/app/characterInput.ts` 밖으로 내보내지 않는다. Task 3 전투 시뮬레이션과 세션/렌더 연결은 미착수다.
 - **조작·가드 보완 계약:** `docs/superpowers/specs/2026-07-28-mouse-aim-guard-matchup-design.md` — PM이 키보드 이동/마우스 조준 분리, 좌클릭 공격, `E` 스킬, 우클릭 무제한 전면 가드, 이동방향 대시, 256단계 조준, 대시 가드브레이크 넉백 증폭, 좌클릭 반격을 결정했다. 서면 검토 발견 사항은 §8 보정 규칙으로 반영됐고, PM이 2026-07-28 재검토에서 옵션 1(§8.6 봇 순서 명시, §8.1 리셋 동결 이동 거부, RELAY 참조 정리)을 승인했다. 대체 구현 계획은 `docs/superpowers/plans/2026-07-28-mouse-aim-combat-core.md`로 작성됐다(보완 문서 §8 인용, §8.8 요건 충족 — Codex 구현·PM 판정 대기).
 - **전환 기준:** 기본 계약은 `docs/superpowers/specs/2026-07-28-character-arena-design.md`, 입력·관성·상성 가드 보완 계약은 `docs/superpowers/specs/2026-07-28-mouse-aim-guard-matchup-design.md`다. 후자의 서면 검토와 PM 승인은 2026-07-28에 기록됐다. 새 구현 계획은 보완 문서 §8을 인용해야 하며, 두 문서가 충돌하면 보완 문서 §8이 우선한다.
@@ -16,7 +16,7 @@
 - **S3 공개 relay 배선:** `1ad9f62`에 GitHub Actions `VITE_RELAY_URL` 주입, direct Vite env access, local relay build smoke, PM Cloudflare/Pages 절차가 있다. 공개 Worker endpoint와 Canvas 두 브라우저 관찰은 PM 게이트다.
 - **PM 게이트:** Cloudflare 로그인·`npm run relay:deploy`·GitHub Actions 변수 등록·원격 push·공개 Worker/Canvas 두 브라우저 관찰은 PM 계정과 브라우저가 필요한 작업이다. PM 부재 시 모바일 조작·제출물 큐로 이동한다.
 ## 다음 작업 큐 (우선순위 순, 각 완료 기준 포함)
-0. **[Task 2 re-review 대기] RMB+LMB chord 수정** — `0efaf93..ca95c13`만 Task 2 brief·대체 코어 계획 Task 2·보완 명세 §8.1/§8.7과 대조한다. 검토 범위는 `mousedown`/`mouseup` button transition, raw-pointer 좌표 보존, chord smoke이며 Task 3은 시작하지 않는다.
+0. **[Task 3 구현] 캐릭터 시뮬레이션·관성·행동 lifecycle** — `docs/superpowers/plans/2026-07-28-mouse-aim-combat-core.md` Task 3. fixed tick 순서, 공유 velocity/drag, keyboard acceleration, movement-snapshot dash, `aimStep` facing, reset-frozen 이동 거부를 구현한다. Task 2의 first-review 및 fix round 1 재검토 기록은 아래 인계 로그에 있다.
 1. **[Task 3 미착수] 캐릭터 시뮬레이션·관성·행동 lifecycle** — `docs/superpowers/plans/2026-07-28-mouse-aim-combat-core.md` Task 3. fixed tick 순서, 공유 velocity/drag, keyboard acceleration, movement-snapshot dash, `aimStep` facing, reset-frozen 이동 거부를 구현한다. Task 2 독립 검토 기록 뒤 시작한다.
 2. **[Task 4 미착수] 가드·카운터·링아웃·타임아웃 판정** — 같은 계획 Task 4. 무제한 상성 가드, 좌클릭 반격, dash guard-break, ring-out 체력 페널티, health→center→draw 판정 및 byte-equal smoke를 구현한다.
 3. **장비·12판 런 이행** — `equipment.ts`와 무기/방어구/장신구 보상·강화·격납고 변환. 착수 전에 싱글플레이 플랜에 보완 문서 §8.5 대체표(counterWindow 등)를 반영한다. 완료 기준: 11회 보상과 세 슬롯이 12판 흐름에서 보인다.
@@ -25,6 +25,12 @@
 6. **제출물** — 게임 소개·실행 방법 PDF(#3), AI 활용 기술 PDF(#4), 30~60초 영상. 캐릭터 후보를 선택한 경우 영상 컷은 기본 계약 문서 §8.3을 쓴다.
 
 ## 인계 로그 (append-only, 최신이 위)
+### 2026-07-28 — Codex Task 2 chord fix re-review 기록 → Task 3 전환
+- 이전 Important 항목: RMB held 중 LMB action과 LMB held 중 RMB release의 button transition이 `pointerdown`/`pointerup`에 의존해 누락될 수 있었다.
+- fix 범위: `bcb76bc..9675b6a`. scoped re-review는 `mousedown`/`mouseup` 전이와 chord smoke를 대조해 해당 항목을 ADDRESSED로 기록했고, fix diff의 새 Critical·Important 항목을 보고하지 않았다.
+- controller 재실행(2026-07-28 콘솔): `npm run smoke:character-input` 30/30, `npm run build` exit 0. Task 2 agent가 기록한 `smoke:touch-input` 19/19 및 `smoke:character-state` 21/21은 구현 보고에 있으며, 이번 controller 재실행에서는 focus scope 밖이라 반복하지 않았다.
+- 다음: Task 3은 `src/game/character/simulation.ts`와 `tools/characterCombat.ts`를 새로 도입한다. Task 4 판정·세션/렌더 연결·push는 범위 밖이다.
+
 ### 2026-07-28 — Codex Task 2 review fix round 1 handoff
 - 리뷰 지적: 이전 `pointerdown`/`pointerup`은 multi-button chord의 각 버튼 전이를 받지 않아, RMB held 중 LMB action과 LMB held 중 RMB release가 누락될 수 있었다.
 - TDD red: `tools/characterInput.ts`을 `mousedown`/`mouseup` fake event model로 바꾸고 RMB→LMB chord assertion을 추가했다. 수정 전 `npm run smoke:character-input`은 exit 1과 `Error: holding RMB while LMB is pressed must keep guard held and queue an attack`을 출력했다.
