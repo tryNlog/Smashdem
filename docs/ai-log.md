@@ -1544,3 +1544,21 @@ GitHub Pages의 public build가 PM이 등록한 `VITE_RELAY_URL`을 받아 `wss:
 - 이 기록 시점에 `src/`·프로토콜·밸런스 상수는 수정하지 않았다.
 - 명세가 PM 검토를 거친 뒤에만 순수 action input/combat state의 TDD와 implementation plan을 시작한다.
 - 일정 추정과 새 수치 적합성은 `[UNSUPPORTED]`이며, 새 하니스와 사람 플레이로 근거를 만들어야 한다.
+---
+
+## 캐릭터 아레나 구현 계획 분리 (Codex)
+
+**날짜:** 2026-07-28
+**담당:** Codex
+**근거:** PM의 명세 승인, `docs/superpowers/specs/2026-07-28-character-arena-design.md`, `docs/RELAY.md`.
+
+### 계획 구조
+
+- `2026-07-28-character-arena-core.md`: 순수 state/input/action/guard/ring-out/timeout smoke.
+- `2026-07-28-character-arena-single-player.md`: 장비 12종, 3택1·리롤, 12판 런, 비미러 봇, Canvas, 로컬 격납고.
+- `2026-07-28-character-arena-pvp-v2.md`: `W/A/C` loadout과 action frame을 쓰는 v2 protocol, host-authoritative online match, local relay, PM 배포 게이트.
+
+### 검토 기록
+
+- 계획의 placeholder 패턴과 retired type 이름 검색 결과는 0건이었다. 각 계획은 red smoke → 실행 → 재실행 → 커밋 단위를 적었다.
+- 현재 시점에는 `src/` 코드·밸런스·protocol을 변경하지 않았다. 새 전투 수치와 일정 소요는 `[UNSUPPORTED]`이며, 코어 하니스와 사람 플레이 관측이 근거를 만들어야 한다.

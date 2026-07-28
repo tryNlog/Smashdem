@@ -4,7 +4,7 @@
 
 ## 현재 상태 (last updated: 2026-07-28, by Codex)
 - **현재 담당:** Codex (PM 승인에 따라 캐릭터 전환 명세를 보강 중)
-- **전환 기준:** `docs/superpowers/specs/2026-07-28-character-arena-design.md`가 캐릭터 전투의 현재 권위 문서다. 기준 문서 커밋은 `2f0c125`이며, 새 전투 코드는 PM의 이 명세 검토 뒤에만 시작한다.
+- **전환 기준:** `docs/superpowers/specs/2026-07-28-character-arena-design.md`가 캐릭터 전투의 현재 권위 문서다. 기준 문서 커밋은 `2f0c125`, 명세 승인은 2026-07-28 PM 기록이다. 구현은 세 계획의 실행 방식 선택 뒤에 시작한다.
 - **로컬 복귀선:** `spinner-baseline-2026-07-28` → `f97bca1` (원격 전송 금지). 8/2 23:00에는 명세 §8.2의 4개 관측으로 캐릭터 후보/태그 기준을 PM이 선택한다.
 - **Claude 제한 해제 예정 시각:** `[UNSUPPORTED]` — 마지막 메시지는 "monthly spend limit"만 표시했고, 복귀 시각을 제공하지 않았다. 다음 Claude 제한 메시지에 시각이 있으면 이 줄에 기록한다.
 - **Codex 복귀 가능 시각:** 현재 세션에서 인계 시 기입.
@@ -14,7 +14,7 @@
 - **S3 공개 relay 배선:** `1ad9f62`에 GitHub Actions `VITE_RELAY_URL` 주입, direct Vite env access, local relay build smoke, PM Cloudflare/Pages 절차가 있다. 공개 Worker endpoint와 Canvas 두 브라우저 관찰은 PM 게이트다.
 - **PM 게이트:** Cloudflare 로그인·`npm run relay:deploy`·GitHub Actions 변수 등록·원격 push·공개 Worker/Canvas 두 브라우저 관찰은 PM 계정과 브라우저가 필요한 작업이다. PM 부재 시 모바일 조작·제출물 큐로 이동한다.
 ## 다음 작업 큐 (우선순위 순, 각 완료 기준 포함)
-0. **[PM 명세 검토] 캐릭터 아레나 계약** — `docs/superpowers/specs/2026-07-28-character-arena-design.md`의 봇·가드·타임아웃·v2 프로토콜·8/2 복귀선을 검토한다. 코드 변경은 이 검토 응답 뒤에만 시작한다.
+0. **[실행 방식 선택 대기] 캐릭터 아레나 계획** — PM이 2026-07-28 명세를 승인했다. 계획은 `docs/superpowers/plans/2026-07-28-character-arena-core.md`, `2026-07-28-character-arena-single-player.md`, `2026-07-28-character-arena-pvp-v2.md`에 나뉜다. 실행 방식이 정해지면 코어 계획 Task 1(직렬화 상태)부터 시작한다.
 1. **순수 전투 기반** — `InputCommand` v2와 `Combatant` 상태의 red/green 테스트를 먼저 만든다. 완료 기준: 고정 시드에서 수동 공격·대시·가드·스킬 action state가 재현되고 `src/game/` 순수성 규칙을 지킨다.
 2. **장비·12판 런 이행** — `equipment.ts`와 무기/방어구/장신구 보상·강화·격납고 변환. 완료 기준: 11회 보상과 세 슬롯이 12판 흐름에서 보인다.
 3. **봇·링아웃·측정** — 새 봇 4티어와 링아웃 체력 페널티. 완료 기준: §9의 bot/guard/ring-out/timeout 스모크와 한 런 관측을 기록한다. 미러봇은 활성화하지 않는다.
