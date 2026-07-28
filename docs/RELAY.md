@@ -2,8 +2,10 @@
 
 > Claude ↔ Codex 세션 제한 릴레이의 인계 상태 파일. **작업 시작 전 읽고, 손 떼기 전 갱신한다.** 규칙 전문은 리포 루트 `AGENTS.md`.
 
-## 현재 상태 (last updated: 2026-07-27, by Codex)
-- **현재 담당:** Codex (Claude의 월간 사용량 한도로 인계받음)
+## 현재 상태 (last updated: 2026-07-28, by Codex)
+- **현재 담당:** Codex (PM 승인에 따라 캐릭터 전환 명세를 보강 중)
+- **전환 기준:** `docs/superpowers/specs/2026-07-28-character-arena-design.md`가 캐릭터 전투의 현재 권위 문서다. 새 전투 코드는 아직 시작하지 않았다.
+- **로컬 복귀선:** `spinner-baseline-2026-07-28` → `f97bca1` (원격 전송 금지). 8/2 23:00에는 명세 §8.2의 4개 관측으로 캐릭터 후보/태그 기준을 PM이 선택한다.
 - **Claude 제한 해제 예정 시각:** `[UNSUPPORTED]` — 마지막 메시지는 "monthly spend limit"만 표시했고, 복귀 시각을 제공하지 않았다. 다음 Claude 제한 메시지에 시각이 있으면 이 줄에 기록한다.
 - **Codex 복귀 가능 시각:** 현재 세션에서 인계 시 기입.
 - **브랜치:** `s2-run`; 최신 기능 코드 커밋 `ec1100c`는 모바일 버스트 방향 스냅샷이며, 방향 래치는 `ce03cba`, touch source/UI는 `7f8bf9f`·`40a85cd`에 있다. remote `origin`은 있고, **push 금지**.
@@ -12,12 +14,12 @@
 - **S3 공개 relay 배선:** `1ad9f62`에 GitHub Actions `VITE_RELAY_URL` 주입, direct Vite env access, local relay build smoke, PM Cloudflare/Pages 절차가 있다. 공개 Worker endpoint와 Canvas 두 브라우저 관찰은 PM 게이트다.
 - **PM 게이트:** Cloudflare 로그인·`npm run relay:deploy`·GitHub Actions 변수 등록·원격 push·공개 Worker/Canvas 두 브라우저 관찰은 PM 계정과 브라우저가 필요한 작업이다. PM 부재 시 모바일 조작·제출물 큐로 이동한다.
 ## 다음 작업 큐 (우선순위 순, 각 완료 기준 포함)
-0. **[PM 명세 검토] 2D 캐릭터 아레나 전환** — `docs/superpowers/specs/2026-07-28-character-arena-design.md`를 검토한다. 코드 변경은 PM의 명세 검토 응답 뒤에만 시작한다. 승인 뒤 첫 구현은 순수 action input·combat state의 red/green 테스트다.
-1. **[PM 게이트] STRIKE 가시화 재플레이 판정** — PM이 `npm run dev`로 STRIKE 세트 완성 타격이 "확 깎인다"로 읽히는지 확인. 과하거나 부족하면 튜닝값(`src/render/effects.ts`의 SPIN_LOSS_REFERENCE=6, 드레인/rate, 팝업 상한·폰트 범위) 조정. PM 부재면 큐로 두고 아래 항목 먼저.
-2. **S3 실시간 PvP 넷코드** — Task 1~5b(프로토콜·coordinator·relay·browser client·Canvas lobby·main handoff)까지 로컬 소스가 있다. 다음은 로컬 사람 브라우저 2탭 실증 → PM 공개 Worker 배포·Pages endpoint 배선이다. 완료 기준: 브라우저 2탭이 실제로 붙어 한 판 종료까지. 킬 스위치 8/2 23:00(그때까지 안 붙으면 로컬 2인 대전으로 강등). **결정론 계층(src/game)을 흔들지 말 것** — 입력만 주고받고 물리는 host가 단독 계산.
-3. **모바일 터치 조작** — 소스 `7f8bf9f`·화면 연결 `40a85cd`은 local commit에 있다. 다음 완료 기준은 폰 브라우저에서 런 진행(8방향 이동·버스트·보상 화면·회전/resize 후 숨김) 관찰이다. 자동 smoke는 명령 변환만 다룬다.
-4. **제출물** — 게임 소개·실행 방법 PDF(#3), AI 활용 기술 PDF(#4), 30~60초 영상. 구간 S5(8/8~9).
-
+0. **[PM 명세 검토] 캐릭터 아레나 계약** — `docs/superpowers/specs/2026-07-28-character-arena-design.md`의 봇·가드·타임아웃·v2 프로토콜·8/2 복귀선을 검토한다. 코드 변경은 이 검토 응답 뒤에만 시작한다.
+1. **순수 전투 기반** — `InputCommand` v2와 `Combatant` 상태의 red/green 테스트를 먼저 만든다. 완료 기준: 고정 시드에서 수동 공격·대시·가드·스킬 action state가 재현되고 `src/game/` 순수성 규칙을 지킨다.
+2. **장비·12판 런 이행** — `equipment.ts`와 무기/방어구/장신구 보상·강화·격납고 변환. 완료 기준: 11회 보상과 세 슬롯이 12판 흐름에서 보인다.
+3. **봇·링아웃·측정** — 새 봇 4티어와 링아웃 체력 페널티. 완료 기준: §9의 bot/guard/ring-out/timeout 스모크와 한 런 관측을 기록한다. 미러봇은 활성화하지 않는다.
+4. **PvP v2** — 새 입력·장비 ID를 protocol/relay/two-tab 경로에 반영한다. 8/2 23:00 전 관측이 없으면 로컬 2인 범위로 강등한다.
+5. **제출물** — 게임 소개·실행 방법 PDF(#3), AI 활용 기술 PDF(#4), 30~60초 영상. 캐릭터 후보를 선택한 경우 영상 컷은 명세 §8.3을 쓴다.
 ## 인계 로그 (append-only, 최신이 위)
 ### 2026-07-28 — PM approved character-arena pivot (design only)
 - PM 결정: Smashdem을 팽이 게임이 아니라 원작 IP를 차용하지 않는 2D 캐릭터 아레나 액션으로 전환한다. 장비 슬롯은 무기·방어구·장신구, 무기는 액티브 스킬, 방어구·장신구는 패시브, 3/3 세트는 강한 시너지를 제공한다.
