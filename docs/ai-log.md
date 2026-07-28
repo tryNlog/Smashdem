@@ -1562,3 +1562,31 @@ GitHub Pages의 public build가 PM이 등록한 `VITE_RELAY_URL`을 받아 `wss:
 
 - 계획의 placeholder 패턴과 retired type 이름 검색 결과는 0건이었다. 각 계획은 red smoke → 실행 → 재실행 → 커밋 단위를 적었다.
 - 현재 시점에는 `src/` 코드·밸런스·protocol을 변경하지 않았다. 새 전투 수치와 일정 소요는 `[UNSUPPORTED]`이며, 코어 하니스와 사람 플레이 관측이 근거를 만들어야 한다.
+---
+
+## Character battle state boundary (Codex)
+
+**Date:** 2026-07-28
+**Scope:** Core Plan Task 1 only: serializable character battle state and factory beside the legacy spinner session.
+
+### Goal and red evidence
+
+- The initial `tools/characterState.ts` smoke imported the absent character-state modules and asserted maximum health plus serializable clone equality.
+- `npx vite build --ssr tools/characterState.ts --outDir dist-tools --logLevel warn` exited 1 before implementation. Vite reported `[UNRESOLVED_IMPORT] Could not resolve '../src/game/character/battleState' in tools/characterState.ts:1:71` and the absent `character/types` import.
+
+### Code and observed commands
+
+- Added `src/game/character/types.ts`, `balance.ts`, and `battleState.ts`. The state has quantized `Axis` inputs, neutral input data, serializable combatants/events/PRNG/cooldowns, deterministic two-fighter central spawns, and deep state clone fields.
+- Added `tools/characterState.ts` and `smoke:character-state` in `package.json`.
+- `npm run smoke:character-state` printed `Character state cases: 5/5 observed` (maximum health, serialized clone equality, same-seed factory equality, independent combatant clone, independent cooldown clone).
+- `npm run build` exited 0 (`tsc --noEmit && vite build`; 32 modules transformed).
+- `npm run smoke:run` printed legacy 12-battle flow `동일 시드 재현(런 구동 전체): 8/8 일치`; its 20-seed observation was `종료 20/20, 12판 완주(won) 5/20`.
+
+### [UNSUPPORTED] items
+
+- `[UNSUPPORTED]` The character-core numeric constants in `src/game/character/balance.ts` have no character-harness or human-play measurement yet. This includes migrated values: fixed delta `1/60`, arena radius `258`, round limit `90`, ring-out/self-ring-out ratios `0.30`, spawn distance `150`, reset freeze `0.6`; and the guard-cone cosine `Math.SQRT1_2` derived from the approved 90-degree cone contract.
+- `[UNSUPPORTED]` Initial character stats (`100` health, `60` guard, movement `480/220`, radius `24`) and normal/dash/skill timing, damage, range, and knockback defaults in that file need Task 3+ harness observations before balance claims.
+
+### Human follow-up
+
+- New character actions are not connected to `main.ts`, renderer, network, or touch input in this task. The live spinner session remains the Pages entry point.

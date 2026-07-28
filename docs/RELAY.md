@@ -94,3 +94,10 @@
 - red→green 관측: source 생성 전 `smoke:touch-input`은 `UNRESOLVED_IMPORT`; battle screen visibility export 추가 전 `MISSING_EXPORT`을 냈다. 이후 touch smoke 13/13, normal build 종료 코드 0, online client 15/15, lobby 8/8, online match 11/11을 콘솔에서 관측했다.
 - 동작 범위: `(pointer: coarse)`에서만 battle/onlineBattle 중 컨트롤을 보이고, 화면 전환·비활성에서 이동/버스트 큐를 지운다. 키보드 축과 터치 축은 `[-1, 1]`로 합산 clamp, burst는 OR다.
 - 다음: 실제 Android/iOS 또는 coarse-pointer 기기에서 8방향·버스트·보상 화면·회전/resize·비전투 숨김을 관찰한다. visual browser automation은 이 환경에서 초기화 오류가 있었으므로, 이 항목은 사람 기기 기록이 필요하다.
+
+### 2026-07-28 — Codex Core Plan Task 1 state boundary
+- Red evidence: before implementation, `npx vite build --ssr tools/characterState.ts --outDir dist-tools --logLevel warn` exited 1 with `[UNRESOLVED_IMPORT]` for `src/game/character/battleState.ts` and `types.ts`.
+- Code state: added only the separate `src/game/character/{types,balance,battleState}.ts` boundary, `tools/characterState.ts`, and the `smoke:character-state` script. The factory creates two deterministic central-spawn combatants with maximum health/guard; the clone copies combatants, seeded random state, hit cooldowns, and events. Legacy spinner source, `main.ts`, renderer, network, touch input, and balance files were not changed.
+- Observations: `npm run smoke:character-state` printed `Character state cases: 5/5 observed`; `npm run build` exited 0; `npm run smoke:run` printed legacy same-seed `8/8` (2026-07-28 console).
+- `[UNSUPPORTED]`: character numeric suitability, including migrated `90`, `0.30`, `150`, `0.6`, guard cone cosine, default stats, and action profile values in `src/game/character/balance.ts`, has no character-harness measurement yet.
+- Next: Core Plan Task 2 may add the desktop action-input boundary. This Task 1 commit ID is recorded in `.superpowers/sdd/2026-07-28-character-arena-core/task-1-report.md` after the local commit. Claude return time remains `[UNSUPPORTED]`; Codex return time is this task handoff.
